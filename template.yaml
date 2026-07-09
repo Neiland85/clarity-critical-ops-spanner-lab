@@ -63,7 +63,7 @@ Resources:
             RestApiId: !Ref NeuroBankApi
       
       # Configuración de red y seguridad
-      ReservedConcurrencyLimit: 10
+      ReservedConcurrentExecutions: 10
       
       # Políticas IAM
       Policies:

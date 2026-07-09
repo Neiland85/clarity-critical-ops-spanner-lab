@@ -13,7 +13,7 @@ os.environ.setdefault(
 )
 
 # Import the FastAPI app
-from app.main import app
+from app.main import app  # noqa: E402
 
 # Vercel expects the app to be named 'app'
 
