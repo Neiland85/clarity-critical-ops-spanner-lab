@@ -62,3 +62,10 @@ NeuroBank-FastAPI-Toolkit-1/
 
 neurobank-fastapi.code-workspace
 neurobank-fastapi.code-workspace
+
+# VS Code workspace policy for this private demo
+!.vscode/
+!.vscode/settings.json
+!.vscode/extensions.json
+
+node_modules/

@@ -1,0 +1,16 @@
+{
+  "recommendations": [
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "ms-python.black-formatter",
+    "ms-python.isort",
+    "charliermarsh.ruff",
+    "ms-azuretools.vscode-docker",
+    "github.vscode-pull-request-github",
+    "github.vscode-github-actions",
+    "eamodio.gitlens",
+    "redhat.vscode-yaml",
+    "editorconfig.editorconfig",
+    "humao.rest-client"
+  ]
+}
