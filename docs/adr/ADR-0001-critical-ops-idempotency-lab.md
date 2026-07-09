@@ -156,28 +156,31 @@ The lab is acceptable only if it can demonstrate:
 
 Minimum baseline command:
 
-```bash
-python -m pytest -q
+`python -m pytest -q`
+
 Expected current baseline:
 
-34 passed
-Consequences
+`34 passed`
+
+## Consequences
 
 Positive consequences:
 
-The repo gains a focused technical narrative.
-The demo becomes more defensible for critical systems discussions.
-Spanner integration can be introduced later without contaminating the baseline.
-The project avoids overclaiming.
+- The repo gains a focused technical narrative.
+- The demo becomes more defensible for critical systems discussions.
+- Spanner integration can be introduced later without contaminating the baseline.
+- The project avoids overclaiming.
 
 Trade-offs:
 
-The first version is a lab, not a product.
-More evidence plumbing is required before any serious external presentation.
-Spanner adds operational complexity and should only be introduced after local semantics are proven.
-Next steps
-Keep this ADR as the design anchor.
-Add a local in-memory or SQLite-backed idempotency prototype first.
-Add tests for duplicate replay, key reuse, pending state, and concurrency.
-Only after local semantics are green, introduce a Spanner-backed repository.
-Document benchmark results separately.
+- The first version is a lab, not a product.
+- More evidence plumbing is required before any serious external presentation.
+- Spanner adds operational complexity and should only be introduced after local semantics are proven.
+
+## Next steps
+
+1. Keep this ADR as the design anchor.
+2. Add a local in-memory or SQLite-backed idempotency prototype first.
+3. Add tests for duplicate replay, key reuse, pending state, and concurrency.
+4. Only after local semantics are green, introduce a Spanner-backed repository.
+5. Document benchmark results separately.
