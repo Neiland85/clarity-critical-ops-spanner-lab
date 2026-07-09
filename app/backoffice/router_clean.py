@@ -14,7 +14,6 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
-
 # Router configuration
 router = APIRouter(prefix="/backoffice", tags=["Backoffice Dashboard"])
 templates = Jinja2Templates(directory="app/backoffice/templates")

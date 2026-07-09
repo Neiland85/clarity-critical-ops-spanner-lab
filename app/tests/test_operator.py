@@ -6,7 +6,6 @@ import pytest
 from app.config import get_settings
 from app.main import app
 
-
 # Obtener API key del sistema de configuración
 settings = get_settings()
 TEST_API_KEY = settings.api_key
