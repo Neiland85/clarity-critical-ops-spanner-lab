@@ -59,6 +59,7 @@ class ExecutionEnvelope(BaseModel):
         extra="forbid",
         frozen=True,
         str_strip_whitespace=True,
+        validate_default=True,
     )
 
     schema_version: Literal["1.0"] = "1.0"
@@ -166,6 +167,7 @@ class ExecutionEnvelope(BaseModel):
 
     def idempotency_start_input(self) -> dict[str, str]:
         return {
+            "idempotency_scope": self.tenant_id,
             "idempotency_key": self.idempotency_key,
             "operation_type": self.operation_type,
             "request_hash": self.request_hash,

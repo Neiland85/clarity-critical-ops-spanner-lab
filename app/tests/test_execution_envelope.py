@@ -47,6 +47,7 @@ def test_envelope_generates_registry_input() -> None:
     envelope = build_envelope()
 
     assert envelope.idempotency_start_input() == {
+        "idempotency_scope": "tenant-001",
         "idempotency_key": "idem-transfer-001",
         "operation_type": "transfer.create",
         "request_hash": envelope.request_hash,
@@ -160,3 +161,19 @@ def test_causation_and_replay_policy_are_preserved() -> None:
 
     assert envelope.causation_id == causation_id
     assert envelope.replay_policy == ReplayPolicy.RETURN_STATUS
+
+
+def test_default_security_context_is_immutable() -> None:
+    payload = {"amount": 100}
+
+    envelope = ExecutionEnvelope(
+        idempotency_key="idem-default-context",
+        operation_type="transfer.create",
+        payload=payload,
+        request_hash=stable_request_hash(payload),
+        actor_id="user-001",
+        tenant_id="tenant-001",
+    )
+
+    with pytest.raises(TypeError):
+        envelope.security_context["role"] = "admin"
