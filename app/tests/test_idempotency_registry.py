@@ -156,3 +156,44 @@ def test_empty_inputs_are_rejected() -> None:
             operation_type="transfer",
             request_hash="hash",
         )
+
+
+def test_same_key_is_isolated_between_idempotency_scopes() -> None:
+    registry = InMemoryIdempotencyRegistry()
+    request_hash = stable_request_hash({"amount": 100})
+
+    tenant_a = registry.start(
+        idempotency_scope="tenant-a",
+        idempotency_key="shared-key",
+        operation_type="transfer.create",
+        request_hash=request_hash,
+    )
+    tenant_b = registry.start(
+        idempotency_scope="tenant-b",
+        idempotency_key="shared-key",
+        operation_type="transfer.create",
+        request_hash=request_hash,
+    )
+
+    registry.complete(
+        idempotency_scope="tenant-a",
+        idempotency_key="shared-key",
+        response_payload={"transfer_id": "tx-a"},
+    )
+
+    record_a = registry.get(
+        "shared-key",
+        idempotency_scope="tenant-a",
+    )
+    record_b = registry.get(
+        "shared-key",
+        idempotency_scope="tenant-b",
+    )
+
+    assert tenant_a.decision == IdempotencyDecision.CREATED
+    assert tenant_b.decision == IdempotencyDecision.CREATED
+    assert record_a is not None
+    assert record_b is not None
+    assert record_a.status == IdempotencyStatus.COMPLETED
+    assert record_b.status == IdempotencyStatus.PENDING
+    assert len(registry) == 2
