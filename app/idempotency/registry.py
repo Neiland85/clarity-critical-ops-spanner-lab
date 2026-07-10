@@ -237,10 +237,15 @@ class InMemoryIdempotencyRegistry:
         Intended for a deterministic sweeper or recovery process.
         """
         with self._lock:
-            record = self._get_record(
-                idempotency_scope,
-                idempotency_key,
+            record = self._records.get(
+                self._record_key(
+                    idempotency_scope,
+                    idempotency_key,
+                )
             )
+
+            if record is None:
+                return False
 
             if record.status != IdempotencyStatus.PENDING:
                 return False

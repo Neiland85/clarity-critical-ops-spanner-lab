@@ -420,3 +420,15 @@ def test_clock_must_return_timezone_aware_datetime() -> None:
         match="timezone-aware",
     ):
         start_transfer(registry)
+
+
+def test_expire_pending_returns_false_for_unknown_operation() -> None:
+    registry, _ = create_registry()
+
+    assert (
+        registry.expire_pending(
+            "unknown-key",
+            idempotency_scope="tenant-001",
+        )
+        is False
+    )
