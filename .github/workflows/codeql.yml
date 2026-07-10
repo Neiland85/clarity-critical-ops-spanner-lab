@@ -11,8 +11,35 @@ permissions:
   contents: read
 
 jobs:
+  capability-check:
+    name: CodeQL capability
+    if: ${{ vars.ENABLE_CODEQL != 'true' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Report CodeQL status
+        shell: bash
+        run: |
+          {
+            echo "## CodeQL analysis deferred"
+            echo
+            echo "GitHub Code Scanning is not currently enabled for this private repository."
+            echo
+            echo "The workflow remains prepared and can be activated by setting:"
+            echo
+            echo '`ENABLE_CODEQL=true`'
+            echo
+            echo "Current active security controls:"
+            echo
+            echo "- Trivy filesystem scanning"
+            echo "- Bandit application scanning"
+            echo "- Dependency security scanning"
+            echo "- GitGuardian secret scanning"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   analyze:
     name: Analyze (python)
+    if: ${{ vars.ENABLE_CODEQL == 'true' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -28,7 +55,6 @@ jobs:
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@v4
         with:
-          upload: never
           upload-database: false
           output: sarif-results
 
