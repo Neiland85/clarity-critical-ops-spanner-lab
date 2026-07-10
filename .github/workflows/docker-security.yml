@@ -2,26 +2,55 @@ name: Docker Security (Trivy)
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   trivy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
 
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout
+        uses: actions/checkout@v6
 
-      - uses: aquasecurity/trivy-action@v0.36.0
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
-          format: sarif
-          output: trivy-results.sarif
+          scan-ref: .
+          format: table
+          output: trivy-results.txt
           severity: CRITICAL,HIGH
+          hide-progress: true
+          exit-code: "0"
 
-      - uses: github/codeql-action/upload-sarif@v4
+      - name: Publish Trivy report
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Trivy security report"
+            echo
+            echo "<details><summary>CRITICAL and HIGH findings</summary>"
+            echo
+            echo '```text'
+            if [[ -s trivy-results.txt ]]; then
+              cat trivy-results.txt
+            else
+              echo "No CRITICAL or HIGH findings reported."
+            fi
+            echo '```'
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Preserve Trivy report
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          sarif_file: trivy-results.sarif
+          name: trivy-security-report
+          path: trivy-results.txt
+          if-no-files-found: error
+          retention-days: 30
