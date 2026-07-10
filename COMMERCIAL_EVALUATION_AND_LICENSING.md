@@ -58,7 +58,7 @@ This document is not an offer, commitment or binding commercial agreement.
 
 ## Contact
 
-Clarity Structures Digital S.L.  
-Neil Muñoz Lago  
-admin@claritystructures.com  
+Clarity Structures Digital S.L.
+Neil Muñoz Lago
+admin@claritystructures.com
 +34 613 722 441
