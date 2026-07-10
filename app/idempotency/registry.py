@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import Enum
-from hashlib import sha256
 from threading import RLock
 from typing import Any
+
+from app.execution.hashing import stable_request_hash
 
 
 class IdempotencyStatus(str, Enum):
@@ -43,16 +43,6 @@ class IdempotencyRecord:
     created_at: datetime
     updated_at: datetime
     completed_at: datetime | None = None
-
-
-def stable_request_hash(payload: dict[str, Any]) -> str:
-    canonical_payload = json.dumps(
-        payload,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
-    )
-    return sha256(canonical_payload.encode("utf-8")).hexdigest()
 
 
 class InMemoryIdempotencyRegistry:
