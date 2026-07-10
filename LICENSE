@@ -1,21 +1,97 @@
-MIT License
+CLARITY CRITICAL OPERATIONS
+PROPRIETARY RIGHTS NOTICE — NO PUBLIC LICENSE GRANTED
 
-Copyright (c) 2025 Neil Munoz
+Copyright © 2025–2026 Neil Muñoz Lago.
+Proprietary exploitation and commercial licensing rights are reserved to
+Clarity Structures Digital S.L.
+All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. NO PUBLIC LICENSE
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+No copyright, patent, trademark, trade-secret or other intellectual-property
+license is granted by access to this repository, by receipt of a copy, or by
+viewing any source code, documentation, architecture, tests, configuration,
+workflow, diagram or related material.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+2. PROHIBITED ACTS
+
+Except under a separate written agreement executed by Clarity Structures
+Digital S.L., no person or entity may:
+
+- use or execute the software;
+- copy or reproduce it;
+- modify, adapt, translate or transform it;
+- create derivative works;
+- distribute, publish or disclose it;
+- sublicense, sell, rent or commercialize it;
+- deploy it in any environment;
+- use it to provide services to third parties;
+- incorporate it into another product or service;
+- use it to train, evaluate or improve an automated model;
+- reverse engineer or analyse it beyond rights that cannot lawfully be
+  excluded;
+- remove or alter proprietary notices.
+
+3. AUTHORIZED EVALUATION
+
+Evaluation, due diligence, security review, pilot access or technical
+collaboration requires prior written authorization defining at least:
+
+- permitted persons;
+- permitted purpose;
+- confidentiality obligations;
+- permitted environment;
+- duration;
+- copying and retention limits;
+- destruction or return obligations;
+- ownership of results and contributions.
+
+Repository access alone is not such authorization.
+
+4. COMMERCIAL ARRANGEMENTS
+
+Commercial deployment, source access, investment, strategic partnership,
+exclusive rights, acquisition, escrow or redistribution require a separate
+signed agreement with Clarity Structures Digital S.L.
+
+Any technical-direction, governance, exclusivity or continuity commitment must
+also be established in the applicable signed agreement.
+
+5. HISTORICAL MIT DISTRIBUTIONS
+
+Specific versions or portions previously distributed by the applicable rights
+holder under the MIT License remain subject to the MIT terms that applied to
+those specific distributions.
+
+This notice does not retroactively revoke rights already granted for those
+specific MIT-licensed copies.
+
+New proprietary additions, modifications, architecture, documentation,
+contracts and releases are not licensed under MIT unless expressly stated in
+writing.
+
+6. THIRD-PARTY COMPONENTS
+
+Third-party libraries, services and dependencies remain subject to their own
+licenses and terms.
+
+No proprietary right is claimed over third-party material merely because it is
+referenced, integrated or listed by this repository.
+
+7. RESERVATION OF RIGHTS
+
+All rights not expressly granted in a separate written agreement are reserved.
+
+8. DISCLAIMER
+
+THE MATERIAL IS PROVIDED FOR CONTROLLED EVALUATION ONLY AND WITHOUT ANY
+WARRANTY, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, SECURITY, AVAILABILITY OR
+PRODUCTION READINESS, TO THE MAXIMUM EXTENT PERMITTED BY LAW.
+
+9. CONTACT
+
+Clarity Structures Digital S.L.
+Neil Muñoz Lago
+admin@claritystructures.com
++34 613 722 441

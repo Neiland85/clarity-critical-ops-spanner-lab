@@ -1,0 +1,6 @@
+*.pdf
+*.zip
+*.csv
+private/
+raw/
+quarantine/
