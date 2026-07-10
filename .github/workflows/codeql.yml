@@ -13,7 +13,7 @@ permissions:
 jobs:
   capability-check:
     name: CodeQL capability
-    if: ${{ vars.ENABLE_CODEQL != 'true' }}
+    if: ${{ (vars.ENABLE_CODEQL || 'false') != 'true' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -39,7 +39,7 @@ jobs:
 
   analyze:
     name: Analyze (python)
-    if: ${{ vars.ENABLE_CODEQL == 'true' }}
+    if: ${{ (vars['ENABLE_CODEQL'] || 'false') == 'true' }}
     runs-on: ubuntu-latest
 
     steps:
