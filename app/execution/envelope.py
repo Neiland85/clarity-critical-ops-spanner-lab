@@ -58,7 +58,7 @@ class ExecutionEnvelope(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
         frozen=True,
-        str_strip_whitespace=True,
+        str_strip_whitespace=False,
         validate_default=True,
     )
 
@@ -143,6 +143,9 @@ class ExecutionEnvelope(BaseModel):
         replay_policy: ReplayPolicy = ReplayPolicy.RETURN_STORED_RESPONSE,
     ) -> "ExecutionEnvelope":
         normalized_payload = to_json_compatible(payload)
+        normalized_security_context = to_json_compatible(
+            security_context if security_context is not None else {}
+        )
 
         return cls(
             operation_id=operation_id or uuid4(),
@@ -155,7 +158,7 @@ class ExecutionEnvelope(BaseModel):
             correlation_id=correlation_id or uuid4(),
             causation_id=causation_id,
             issued_at=issued_at or datetime.now(UTC),
-            security_context=security_context or {},
+            security_context=normalized_security_context,
             replay_policy=replay_policy,
         )
 

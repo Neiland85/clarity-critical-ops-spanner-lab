@@ -177,3 +177,29 @@ def test_default_security_context_is_immutable() -> None:
 
     with pytest.raises(TypeError):
         envelope.security_context["role"] = "admin"
+
+
+@pytest.mark.parametrize(
+    ("field_name", "value"),
+    [
+        ("idempotency_key", " idem-key"),
+        ("idempotency_key", "idem-key "),
+        ("actor_id", " actor-001"),
+        ("tenant_id", "tenant-001 "),
+    ],
+)
+def test_identifier_whitespace_is_rejected_without_normalization(
+    field_name: str,
+    value: str,
+) -> None:
+    with pytest.raises(ValidationError):
+        build_envelope(**{field_name: value})
+
+
+def test_non_json_security_context_values_are_rejected() -> None:
+    with pytest.raises(ValueError, match="unsupported JSON value type"):
+        build_envelope(
+            security_context={
+                "authenticated_at": datetime.now(UTC),
+            }
+        )
