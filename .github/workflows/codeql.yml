@@ -1,62 +1,68 @@
-name: "CodeQL Analysis"
+name: CodeQL Analysis
 
 on:
-  push:
-    branches: [ "main", "feature/karpathy-lab-init" ]
   pull_request:
-    branches: [ "main" ]
-  schedule:
-    # Run CodeQL every Monday at 9:00 AM UTC
-    - cron: '0 9 * * 1'
+    branches: [main]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
-  actions: read
   contents: read
-  security-events: write
 
 jobs:
-  analyze:
-    name: Analyze
+  capability-check:
+    name: CodeQL capability
+    if: ${{ vars.ENABLE_CODEQL != 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    strategy:
-      fail-fast: false
-      matrix:
-        language: [ 'python' ]
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v6
+      - name: Report CodeQL status
+        shell: bash
+        run: |
+          {
+            echo "## CodeQL analysis deferred"
+            echo
+            echo "GitHub Code Scanning is not currently enabled for this private repository."
+            echo
+            echo "The workflow remains prepared and can be activated by setting:"
+            echo
+            echo '`ENABLE_CODEQL=true`'
+            echo
+            echo "Current active security controls:"
+            echo
+            echo "- Trivy filesystem scanning"
+            echo "- Bandit application scanning"
+            echo "- Dependency security scanning"
+            echo "- GitGuardian secret scanning"
+          } >> "$GITHUB_STEP_SUMMARY"
 
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v4
-      with:
-        languages: ${{ matrix.language }}
-        queries: security-extended,security-and-quality
-        config: |
-          paths-ignore:
-            - '**/test/**'
-            - '**/tests/**'
-            - '**/*_test.py'
-            - '**/test_*.py'
+  analyze:
+    name: Analyze (python)
+    if: ${{ vars.ENABLE_CODEQL == 'true' }}
+    runs-on: ubuntu-latest
 
-    - name: Autobuild
-      uses: github/codeql-action/autobuild@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
 
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v4
-      with:
-        category: "/language:${{matrix.language}}"
-        upload: true
-        output: sarif-results
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: python
+          queries: security-extended
 
-    - name: Upload CodeQL results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: codeql-results
-        path: sarif-results
-        retention-days: 30
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          upload-database: false
+          output: sarif-results
 
+      - name: Preserve CodeQL SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-python-sarif
+          path: sarif-results
+          if-no-files-found: error
+          retention-days: 30

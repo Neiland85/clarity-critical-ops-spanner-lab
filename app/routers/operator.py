@@ -11,7 +11,6 @@ from app.auth.dependencies import verify_api_key
 from app.services.invoice_service import generate_invoice
 from app.services.order_service import get_order_status
 
-
 router = APIRouter(
     prefix="/api",
     tags=["Banking Operations"],

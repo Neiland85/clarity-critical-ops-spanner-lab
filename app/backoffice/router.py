@@ -8,7 +8,6 @@ This module must only expose an APIRouter instance named `router`.
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 
-
 router = APIRouter(
     prefix="/backoffice",
     tags=["Backoffice"],

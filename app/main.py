@@ -10,8 +10,8 @@ This is the ONLY place where:
 Dependencies flow: main.py -> config.py, routers (NEVER the reverse)
 """
 
-from contextlib import asynccontextmanager
 import logging
+from contextlib import asynccontextmanager
 from typing import Dict
 
 from fastapi import FastAPI

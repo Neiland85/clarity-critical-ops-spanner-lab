@@ -3,17 +3,16 @@
 Enterprise-grade admin panel para impresionar reclutadores bancarios
 """
 
+import random
+import uuid
 from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
-import random
-import uuid
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
-
 
 # Router configuration
 router = APIRouter(prefix="/backoffice", tags=["Backoffice Dashboard"])

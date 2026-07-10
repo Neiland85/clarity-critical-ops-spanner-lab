@@ -3,8 +3,8 @@
 import logging
 from unittest.mock import MagicMock, patch
 
-from fastapi import FastAPI
 import pytest
+from fastapi import FastAPI
 
 from app.telemetry import log_request_metrics, setup_telemetry
 
