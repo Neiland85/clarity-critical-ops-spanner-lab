@@ -1,0 +1,468 @@
+schema_version: '1.0'
+registry:
+  id: clarity-critical-operations-technical-claims
+  version: 1.0-draft
+  status: PROPOSED
+  date: '2026-07-11'
+  product: Clarity Critical Operations
+  technical_class: Provider-Neutral Critical Execution Control Plane
+  owner: Clarity Structures Digital S.L.
+  authority: authoritative repository index for public technical claims
+  related:
+  - docs/adr/ADR-0002-edge-idempotency-execution-contracts.md
+  - docs/adr/ADR-0003-product-neutrality-and-background-ip-boundaries.md
+  - docs/adr/ADR-0004-multi-vector-disruption-and-flapping-control.md
+  - docs/security/THREAT-MODEL-0001-multi-vector-disruption-flapping-and-duplicate-execution.md
+  - docs/contracts/IDEMPOTENCY_RETENTION_AND_CAPACITY_CONTRACT.md
+  - docs/contracts/ADMISSION_AND_CAPACITY_CONTRACT.md
+  - docs/testing/RESILIENCE_AND_ADVERSARIAL_VALIDATION_PLAN.md
+  - tests/resilience/scenarios.yaml
+
+status_values:
+- PROPOSED
+- IMPLEMENTED_UNVERIFIED
+- VERIFIED_LOCAL
+- VERIFIED_DISTRIBUTED
+- VERIFIED_PREPRODUCTION
+- DEPRECATED
+- REVOKED
+
+rules:
+- id: RULE-001
+  statement: A public technical statement must map to one claim identifier in this file.
+- id: RULE-002
+  statement: A claim may be described as implemented only when reviewable code or an authoritative contract exists.
+- id: RULE-003
+  statement: A claim may be described as verified only when its required validation gate has passed and preserved evidence is referenced.
+- id: RULE-004
+  statement: A local result must not be generalized to distributed, multi-process, regional, industrial or production behaviour.
+- id: RULE-005
+  statement: A claim must be downgraded or revoked when supporting evidence is invalidated or a material implementation change is not revalidated.
+- id: RULE-006
+  statement: Provider-specific validation applies only to the named adapter, topology, policy and configuration.
+- id: RULE-007
+  statement: Missing, failed, aborted or unexecuted evidence cannot support a verified claim.
+- id: RULE-008
+  statement: Raw credentials, personal data and lease tokens must not appear in claim evidence.
+- id: RULE-009
+  statement: Broad terms such as resilient, production-ready, immutable or exactly-once require a narrower validated scope.
+- id: RULE-010
+  statement: Claims concerning legal compliance, certification or contractual service levels require separate legal and operational assessment.
+
+current_verified_boundary:
+  status: VERIFIED_LOCAL
+  validation_date: '2026-07-11'
+  repository_commit: 4e9723bb386bf65ec0651b9b4531c51f5fad5392
+  implementation: in-memory reference idempotency registry
+  topology: single Python process
+  concurrency_profile:
+    submissions: 64
+    worker_threads: 16
+    observed_created: 1
+    observed_pending: 63
+  test_suite:
+    collected: 75
+    passed: 75
+  verified_properties:
+  - deterministic request hashing
+  - idempotency identity isolation by scope and key
+  - duplicate pending-request suppression
+  - same-key conflicting-request detection
+  - completed-response replay
+  - terminal failed-state handling
+  - pending leases
+  - expiry and reacquisition
+  - lease rotation
+  - stale-worker fencing
+  - expired-worker rejection
+  - terminal-transition protection
+  - deterministic local expiry
+  - limited thread-based concurrency in one process
+  not_verified:
+  - multi-process convergence
+  - distributed idempotency
+  - durable registry behaviour
+  - real Google Cloud Spanner behaviour
+  - sustained industrial load
+  - bounded admission under unique-key floods
+  - load shedding and backpressure
+  - provider-health hysteresis
+  - message redelivery across independent workers
+  - outbox delivery guarantees
+  - failover and regional recovery
+  - volumetric DDoS resistance
+  - RF anti-jamming capability
+  - universal end-to-end exactly-once execution
+  - production readiness
+  - regulatory certification or legal compliance
+
+claims:
+- id: CCO-LOCAL-001
+  statement: The reference implementation computes deterministic request hashes for JSON-compatible payloads so object-key order does not change the hash.
+  status: VERIFIED_LOCAL
+  public_use: PERMITTED_WITH_SCOPE
+  scope: single-process Python reference implementation using the current canonical JSON hashing function
+  required_gate: V1
+  scenarios:
+  - IDEMP-001
+  evidence:
+  - app/tests/test_idempotency_registry.py::test_stable_request_hash_ignores_key_order
+  - app/tests/test_idempotency_registry.py::test_stable_request_hash_changes_when_payload_changes
+  - app/idempotency/registry.py
+  limitations:
+  - applies only to supported JSON-compatible values and the current canonicalization contract
+  - does not prove compatibility with every external serializer or programming language
+  last_validation_date: '2026-07-11'
+  repository_commit: 4e9723bb386bf65ec0651b9b4531c51f5fad5392
+  owner: Clarity Structures Digital S.L.
+
+- id: CCO-LOCAL-002
+  statement: The reference registry isolates the same idempotency key across independent idempotency scopes.
+  status: VERIFIED_LOCAL
+  public_use: PERMITTED_WITH_SCOPE
+  scope: single-process in-memory registry where idempotency_scope represents tenant identity
+  required_gate: V1
+  scenarios:
+  - IDEMP-001
+  evidence:
+  - app/tests/test_idempotency_registry.py::test_same_key_is_isolated_between_idempotency_scopes
+  - app/idempotency/registry.py
+  limitations:
+  - authentication-derived tenant binding is a target contract and is not verified by this local registry test
+  - distributed tenant isolation is not verified
+  last_validation_date: '2026-07-11'
+  repository_commit: 4e9723bb386bf65ec0651b9b4531c51f5fad5392
+  owner: Clarity Structures Digital S.L.
+
+- id: CCO-LOCAL-003
+  statement: A duplicate pending request with the same scope, key, operation type and request hash does not receive a second execution lease in the reference registry.
+  status: VERIFIED_LOCAL
+  public_use: PERMITTED_WITH_SCOPE
+  scope: single-process in-memory registry
+  required_gate: V1
+  scenarios:
+  - IDEMP-001
+  evidence:
+  - app/tests/test_idempotency_registry.py::test_duplicate_pending_request_does_not_receive_execution_lease
+  - app/idempotency/registry.py
+  limitations:
+  - does not establish multi-process or durable duplicate suppression
+  last_validation_date: '2026-07-11'
+  repository_commit: 4e9723bb386bf65ec0651b9b4531c51f5fad5392
+  owner: Clarity Structures Digital S.L.
+
+- id: CCO-LOCAL-004
+  statement: Reusing the same scope and idempotency key with a different request hash or operation type produces a conflict decision in the reference registry.
+  status: VERIFIED_LOCAL
+  public_use: PERMITTED_WITH_SCOPE
+  scope: single-process in-memory registry
+  required_gate: V1
+  scenarios:
+  - IDEMP-002
+  evidence:
+  - app/tests/test_idempotency_registry.py::test_same_key_different_payload_is_rejected
+  - app/idempotency/registry.py
+  limitations:
+  - operation-type conflict behaviour is implemented in the same comparison branch but should receive a dedicated explicit test before being cited independently
+  - distributed conflict convergence is not verified
+  last_validation_date: '2026-07-11'
+  repository_commit: 4e9723bb386bf65ec0651b9b4531c51f5fad5392
+  owner: Clarity Structures Digital S.L.
+
+- id: CCO-LOCAL-005
+  statement: A completed request is replayed from the stored response without reacquiring execution in the reference registry.
+  status: VERIFIED_LOCAL
+  public_use: PERMITTED_WITH_SCOPE
+  scope: single-process in-memory registry
+  required_gate: V1
+  scenarios:
+  - IDEMP-005
+  evidence:
+  - app/tests/test_idempotency_registry.py::test_completed_request_replays_original_response
+  - app/tests/test_idempotency_registry.py::test_completed_operation_is_not_reacquired_after_ttl
+  - app/idempotency/registry.py
+  limitations:
+  - response durability and replay across process or regional failure are not verified
+  last_validation_date: '2026-07-11'
+  repository_commit: 4e9723bb386bf65ec0651b9b4531c51f5fad5392
+  owner: Clarity Structures Digital S.L.
+
+- id: CCO-LOCAL-006
+  statement: A failed operation remains terminal and returns the stored failed decision in the reference registry.
+  status: VERIFIED_LOCAL
+  public_use: PERMITTED_WITH_SCOPE
+  scope: version-1 single-process in-memory registry semantics
+  required_gate: V1
+  scenarios:
+  - IDEMP-005
+  evidence:
+  - app/tests/test_idempotency_registry.py::test_failed_request_returns_failed_decision
+  - app/idempotency/registry.py
+  limitations:
+  - retryable and non-retryable failure taxonomy is not yet implemented as a general provider-neutral contract
+  - FAILED is terminal in version 1
+  last_validation_date: '2026-07-11'
+  repository_commit: 4e9723bb386bf65ec0651b9b4531c51f5fad5392
+  owner: Clarity Structures Digital S.L.
+
+- id: CCO-LOCAL-007
+  statement: An expired pending operation can be reacquired with an incremented attempt and a rotated lease token in the reference registry.
+  status: VERIFIED_LOCAL
+  public_use: PERMITTED_WITH_SCOPE
+  scope: single-process in-memory registry with an injected timezone-aware clock
+  required_gate: V1
+  scenarios:
+  - IDEMP-003
+  evidence:
+  - app/tests/test_idempotency_registry.py::test_expired_pending_operation_is_reacquired_with_new_lease
+  - app/tests/test_idempotency_registry.py::test_expire_pending_marks_due_operation_and_allows_reacquisition
+  - app/idempotency/registry.py
+  limitations:
+  - distributed clock behaviour and durable lease ownership are not verified
+  - lease duration is not a record-retention policy
+  last_validation_date: '2026-07-11'
+  repository_commit: 4e9723bb386bf65ec0651b9b4531c51f5fad5392
+  owner: Clarity Structures Digital S.L.
+
+- id: CCO-LOCAL-008
+  statement: A stale or expired lease holder cannot complete a newer or expired attempt in the reference registry.
+  status: VERIFIED_LOCAL
+  public_use: PERMITTED_WITH_SCOPE
+  scope: single-process in-memory registry
+  required_gate: V1
+  scenarios:
+  - IDEMP-004
+  evidence:
+  - app/tests/test_idempotency_registry.py::test_stale_worker_cannot_complete_reacquired_operation
+  - app/tests/test_idempotency_registry.py::test_worker_cannot_complete_after_its_lease_expires
+  - app/idempotency/registry.py
+  limitations:
+  - distributed fencing against external side effects is not verified
+  - this claim covers registry terminal transitions, not every possible provider action
+  last_validation_date: '2026-07-11'
+  repository_commit: 4e9723bb386bf65ec0651b9b4531c51f5fad5392
+  owner: Clarity Structures Digital S.L.
+
+- id: CCO-LOCAL-009
+  statement: A completed terminal operation cannot be completed a second time in the reference registry.
+  status: VERIFIED_LOCAL
+  public_use: PERMITTED_WITH_SCOPE
+  scope: single-process in-memory registry
+  required_gate: V1
+  scenarios:
+  - IDEMP-005
+  evidence:
+  - app/tests/test_idempotency_registry.py::test_terminal_operation_cannot_be_completed_twice
+  - app/tests/test_idempotency_registry.py::test_completed_operation_is_not_reacquired_after_ttl
+  - app/idempotency/registry.py
+  limitations:
+  - atomic coordination with a durable domain write and outbox is not yet verified
+  last_validation_date: '2026-07-11'
+  repository_commit: 4e9723bb386bf65ec0651b9b4531c51f5fad5392
+  owner: Clarity Structures Digital S.L.
+
+- id: CCO-LOCAL-010
+  statement: Under a local test of 64 concurrent submissions using 16 threads, the reference registry produced one CREATED decision, 63 PENDING decisions and one authoritative record.
+  status: VERIFIED_LOCAL
+  public_use: PERMITTED_WITH_EXACT_PROFILE
+  scope: one Python process, in-memory registry, 64 submissions and 16 worker threads
+  required_gate: V1
+  scenarios:
+  - IDEMP-001
+  evidence:
+  - app/tests/test_idempotency_registry.py::test_concurrent_duplicates_create_single_pending_record
+  limitations:
+  - this is not a throughput benchmark
+  - this does not verify sustained load, multi-process convergence, distributed locking or production capacity
+  last_validation_date: '2026-07-11'
+  repository_commit: 4e9723bb386bf65ec0651b9b4531c51f5fad5392
+  owner: Clarity Structures Digital S.L.
+
+- id: CCO-CONTRACT-001
+  statement: The repository defines provider-neutral draft contracts for idempotency retention, admission, capacity and adversarial validation.
+  status: IMPLEMENTED_UNVERIFIED
+  public_use: PERMITTED_AS_DESIGN_STATEMENT
+  scope: authoritative repository documentation on branch docs/resilience-validation-contracts
+  required_gate: V0
+  scenarios:
+  - CLAIM-001
+  evidence:
+  - docs/contracts/IDEMPOTENCY_RETENTION_AND_CAPACITY_CONTRACT.md
+  - docs/contracts/ADMISSION_AND_CAPACITY_CONTRACT.md
+  - docs/testing/RESILIENCE_AND_ADVERSARIAL_VALIDATION_PLAN.md
+  - tests/resilience/scenarios.yaml
+  limitations:
+  - contract existence does not establish runtime enforcement
+  - documents remain proposed until reviewed and merged
+  last_validation_date: null
+  repository_commit: d285016bd4e3f1e26396f8bbc28d2ec0d178d91e
+  owner: Clarity Structures Digital S.L.
+
+- id: CCO-TARGET-001
+  statement: Independent processes converge on one durable authoritative idempotency decision for a validated adapter and topology.
+  status: PROPOSED
+  public_use: NOT_YET_PERMITTED_AS_VERIFIED
+  scope: future durable registry adapter and explicitly validated topology
+  required_gate: V2
+  scenarios:
+  - DIST-001
+  - DIST-002
+  - DIST-003
+  evidence: []
+  limitations:
+  - no durable registry adapter has passed V2
+  - real Spanner behaviour is not verified
+  last_validation_date: null
+  repository_commit: null
+  owner: Clarity Structures Digital S.L.
+
+- id: CCO-TARGET-002
+  statement: Admission and capacity remain bounded under duplicate storms, unique-key floods, noisy tenants and provider-concurrency saturation for a validated configuration.
+  status: PROPOSED
+  public_use: NOT_YET_PERMITTED_AS_VERIFIED
+  scope: future admission-control implementation and explicitly validated resource profile
+  required_gate: V3
+  scenarios:
+  - ADMIT-001
+  - ADMIT-002
+  - ADMIT-003
+  - ADMIT-004
+  - ADMIT-005
+  - ADMIT-006
+  evidence: []
+  limitations:
+  - admission limits and load shedding are contracts, not verified runtime capabilities
+  - no industrial load claim is permitted
+  last_validation_date: null
+  repository_commit: null
+  owner: Clarity Structures Digital S.L.
+
+- id: CCO-TARGET-003
+  statement: Provider-health hysteresis, retry budgets, quarantine and progressive recovery contain validated provider-flapping profiles without corrupting execution state.
+  status: PROPOSED
+  public_use: NOT_YET_PERMITTED_AS_VERIFIED
+  scope: future provider-health state machine and explicitly validated policy
+  required_gate: V4
+  scenarios:
+  - PROV-001
+  - PROV-002
+  - PROV-003
+  - PROV-004
+  - PROV-005
+  - PROV-006
+  evidence: []
+  limitations:
+  - provider-health state is not yet implemented and validated
+  - no claim applies to every provider or failure mode
+  last_validation_date: null
+  repository_commit: null
+  owner: Clarity Structures Digital S.L.
+
+- id: CCO-TARGET-004
+  statement: Failover, recovery, outbox redelivery and evidence reconciliation preserve one authoritative execution history for a validated topology and runbook.
+  status: PROPOSED
+  public_use: NOT_YET_PERMITTED_AS_VERIFIED
+  scope: future durable topology, recovery procedure and evidence pipeline
+  required_gate: V5
+  scenarios:
+  - FAIL-001
+  - FAIL-002
+  - FAIL-003
+  - FAIL-004
+  - FAIL-005
+  - RECOV-001
+  evidence: []
+  limitations:
+  - no failover or regional recovery gate has passed
+  - recovery point and recovery time must be measured rather than assumed
+  last_validation_date: null
+  repository_commit: null
+  owner: Clarity Structures Digital S.L.
+
+- id: CCO-TARGET-005
+  statement: A specific pre-production configuration can sustain a predeclared authorized workload without invariant breach, unexplained duplicate effect, silent evidence loss or unbounded resource trend.
+  status: PROPOSED
+  public_use: NOT_YET_PERMITTED_AS_VERIFIED
+  scope: future isolated pre-production environment and exact tested configuration
+  required_gate: V6
+  scenarios: []
+  evidence: []
+  limitations:
+  - no controlled soak has passed V6
+  - a V6 pass would not establish universal production readiness or an SLA
+  last_validation_date: null
+  repository_commit: null
+  owner: Clarity Structures Digital S.L.
+
+forbidden_statements:
+- id: FORBIDDEN-001
+  statement: Clarity Critical Operations is immune to volumetric DDoS attacks.
+  reason: network and edge-capacity protection remain shared or external responsibilities and no such gate exists
+- id: FORBIDDEN-002
+  statement: Clarity Critical Operations provides RF anti-jamming capability.
+  reason: RF interference controls are outside the execution-control product boundary
+- id: FORBIDDEN-003
+  statement: Clarity Critical Operations guarantees exactly-once execution end to end.
+  reason: local idempotency semantics do not control every transport, provider and irreversible external effect
+- id: FORBIDDEN-004
+  statement: Clarity Critical Operations is production-ready.
+  reason: no V6 controlled pre-production gate has passed and readiness is configuration-specific
+- id: FORBIDDEN-005
+  statement: Clarity Critical Operations is certified or legally compliant.
+  reason: architectural documentation and tests are not legal certification or regulatory assessment
+- id: FORBIDDEN-006
+  statement: Clarity Critical Operations guarantees regional availability or a contractual SLA.
+  reason: failover, recovery, availability targets and service levels have not been validated or contracted
+- id: FORBIDDEN-007
+  statement: The full system is immutable.
+  reason: the defensible target is tamper-evident operational evidence and controlled state transitions, not universal immutability
+- id: FORBIDDEN-008
+  statement: Google Cloud Spanner integration is complete and verified.
+  reason: Spanner is a target transactional adapter and no real adapter gate has passed
+- id: FORBIDDEN-009
+  statement: Admission control, provider-flapping containment and load shedding are already implemented.
+  reason: these are proposed contracts and validation targets, not current verified runtime capabilities
+- id: FORBIDDEN-010
+  statement: Local thread-based tests prove industrial-scale or distributed resilience.
+  reason: the current verified boundary is one process with a limited in-memory concurrency scenario
+
+promotion_requirements:
+  to_verified_local:
+  - reviewable implementation exists
+  - V1 scenario is versioned and passes
+  - local environment is recorded
+  - evidence references resolve
+  - limitations remain explicit
+  to_verified_distributed:
+  - durable adapter and topology are identified
+  - V2 passes without invariant breach
+  - reconciliation succeeds
+  - evidence bundle is preserved
+  - claim scope names the validated adapter and topology
+  to_verified_preproduction:
+  - prerequisite lower gates remain valid
+  - required V3 through V5 gates pass for the promoted capability
+  - V6 authorized soak passes
+  - rollback and runbook are exercised
+  - evidence bundle and limitations are published internally
+
+review:
+  required_on_change:
+  - execution semantics
+  - request hashing or canonicalization
+  - idempotency identity
+  - lease or fencing behaviour
+  - terminal-state policy
+  - retention or purge policy
+  - admission or capacity limits
+  - provider-health policy
+  - failover or recovery behaviour
+  - evidence schema or reconciliation
+  - public product wording
+  downgrade_triggers:
+  - supporting test fails
+  - implementation changes materially without revalidation
+  - evidence bundle is missing, corrupted or contradicted
+  - a new incident disproves the statement
+  - validated environment is no longer representative
+  - contract semantics change incompatibly

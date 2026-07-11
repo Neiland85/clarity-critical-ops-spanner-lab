@@ -1,0 +1,729 @@
+schema_version: '1.0'
+catalogue:
+  id: clarity-critical-ops-resilience-scenarios
+  version: 1.0-draft
+  status: PROPOSED
+  date: '2026-07-11'
+  product: Clarity Critical Operations
+  scope: provider-neutral critical execution control plane
+  related:
+  - docs/testing/RESILIENCE_AND_ADVERSARIAL_VALIDATION_PLAN.md
+  - docs/security/THREAT-MODEL-0001-multi-vector-disruption-flapping-and-duplicate-execution.md
+  - docs/contracts/IDEMPOTENCY_RETENTION_AND_CAPACITY_CONTRACT.md
+  - docs/contracts/ADMISSION_AND_CAPACITY_CONTRACT.md
+status_values:
+  implementation_status:
+  - AUTOMATED_LOCAL
+  - IMPLEMENTED_UNVERIFIED
+  - PROPOSED
+  - BLOCKED
+  - DEPRECATED
+  validation_status:
+  - BASELINE_LOCAL
+  - NOT_EXECUTED
+  - PASS
+  - FAIL
+  - ABORTED
+  - INVALIDATED
+defaults:
+  environment: isolated and explicitly authorized
+  production_targeting: false
+  third_party_targeting: false
+  evidence_bundle_required: true
+  reconciliation_required: true
+  cleanup_required: true
+  stop_on_invariant_breach: true
+  secrets_forbidden: true
+  raw_lease_tokens_forbidden: true
+  resource_limits: must be declared before execution
+  dataset_seed: must be recorded
+  required_environment_record:
+  - repository_commit
+  - scenario_id
+  - scenario_version
+  - utc_start
+  - utc_end
+  - operator
+  - operating_system
+  - architecture
+  - python_version
+  - resolved_dependencies
+  - configuration_hash
+  - policy_snapshot_hash
+  - backend_adapter
+  - transport_adapter
+  - processes
+  - workers
+  - threads
+  - resource_limits
+  - dataset_seed
+  - termination_reason
+  - evidence_bundle_hash
+  global_stop_conditions:
+  - duplicate_irreversible_effect
+  - tenant_boundary_violation
+  - stale_terminal_transition
+  - terminal_record_overwrite
+  - secret_or_raw_lease_token_in_evidence
+  - authorized_resource_ceiling_exceeded
+  - hard_queue_bound_exceeded
+  - retry_budget_exceeded
+  - traffic_outside_authorization_envelope
+  - cleanup_cannot_be_guaranteed
+  - operator_emergency_stop
+  evidence_bundle_files:
+  - manifest.json
+  - scenario.yaml
+  - configuration.redacted.json
+  - policy-snapshot.json
+  - commit.txt
+  - environment.txt
+  - result.json
+  - metrics-summary.json
+  - invariant-results.json
+  - fault-timeline.json
+  - checksums.sha256
+invariants:
+  INV-001: At most one authoritative record represents a tenant and idempotency key.
+  INV-002: A changed operation type or request hash produces a conflict.
+  INV-003: A stale or expired lease holder cannot commit a terminal transition.
+  INV-004: A terminal record cannot be silently reacquired or rewritten.
+  INV-005: Rejected requests do not create unbounded state.
+  INV-006: Retries, reconnects and redeliveries remain bounded.
+  INV-007: Tenant identity, quota, evidence and execution state remain isolated.
+  INV-008: Authoritative transitions remain reconstructable from evidence.
+  INV-009: Provider-health transitions do not silently alter execution state.
+  INV-010: Unexecuted or failed gates cannot support verified claims.
+scenarios:
+- id: IDEMP-001
+  version: '1.0'
+  title: Same key and same hash under concurrent local submissions
+  gate: V1
+  layer: L1
+  implementation_status: AUTOMATED_LOCAL
+  validation_status: BASELINE_LOCAL
+  scope: single process, in-memory registry, 64 submissions, 16 threads
+  test_refs:
+  - app/tests/test_idempotency_registry.py::test_concurrent_duplicates_create_single_pending_record
+  stimulus:
+  - submit the same tenant, key, operation type and request hash concurrently
+  expected:
+  - one CREATED decision
+  - all other decisions are PENDING
+  - one registry record
+  invariants:
+  - INV-001
+  - INV-005
+  - INV-006
+  metrics:
+  - authoritative_records_created
+  - created_decisions
+  - pending_decisions
+  limitations:
+  - does not validate multi-process or durable convergence
+- id: IDEMP-002
+  version: '1.0'
+  title: Same key with a different request hash
+  gate: V1
+  layer: L1
+  implementation_status: AUTOMATED_LOCAL
+  validation_status: BASELINE_LOCAL
+  scope: single process, in-memory registry
+  test_refs:
+  - app/tests/test_idempotency_registry.py::test_same_key_different_payload_is_rejected
+  stimulus:
+  - submit one key with one payload
+  - reuse the key with changed payload
+  expected:
+  - second submission returns CONFLICT
+  - no second authoritative record
+  invariants:
+  - INV-001
+  - INV-002
+  metrics:
+  - conflicts_detected
+  - authoritative_records_created
+  limitations:
+  - does not validate conflict convergence across processes
+- id: IDEMP-003
+  version: '1.0'
+  title: Expired lease and reacquisition
+  gate: V1
+  layer: L1
+  implementation_status: AUTOMATED_LOCAL
+  validation_status: BASELINE_LOCAL
+  scope: single process, injected timezone-aware clock
+  test_refs:
+  - app/tests/test_idempotency_registry.py::test_expired_pending_operation_is_reacquired_with_new_lease
+  - app/tests/test_idempotency_registry.py::test_expire_pending_marks_due_operation_and_allows_reacquisition
+  stimulus:
+  - acquire a pending operation
+  - advance clock to lease expiry
+  - submit the same request
+  expected:
+  - decision is REACQUIRED
+  - attempt increments
+  - lease rotates
+  invariants:
+  - INV-001
+  - INV-003
+  - INV-004
+  metrics:
+  - reacquisitions
+  - attempt
+  - lease_rotations
+  limitations:
+  - does not validate distributed clock or durable sweeper behaviour
+- id: IDEMP-004
+  version: '1.0'
+  title: Stale completion after reacquisition
+  gate: V1
+  layer: L1
+  implementation_status: AUTOMATED_LOCAL
+  validation_status: BASELINE_LOCAL
+  scope: single process, in-memory registry
+  test_refs:
+  - app/tests/test_idempotency_registry.py::test_stale_worker_cannot_complete_reacquired_operation
+  - app/tests/test_idempotency_registry.py::test_worker_cannot_complete_after_its_lease_expires
+  stimulus:
+  - expire and reacquire an operation
+  - attempt completion with the old lease
+  expected:
+  - old lease is rejected
+  - only the current lease may complete
+  invariants:
+  - INV-003
+  - INV-004
+  metrics:
+  - stale_completions_rejected
+  - expired_completions_rejected
+  limitations:
+  - does not validate stale workers in separate processes
+- id: IDEMP-005
+  version: '1.0'
+  title: Terminal replay
+  gate: V1
+  layer: L1
+  implementation_status: AUTOMATED_LOCAL
+  validation_status: BASELINE_LOCAL
+  scope: single process, in-memory registry
+  test_refs:
+  - app/tests/test_idempotency_registry.py::test_completed_request_replays_original_response
+  - app/tests/test_idempotency_registry.py::test_completed_operation_is_not_reacquired_after_ttl
+  - app/tests/test_idempotency_registry.py::test_terminal_operation_cannot_be_completed_twice
+  stimulus:
+  - complete an operation
+  - resubmit the same logical request
+  expected:
+  - decision is REPLAY
+  - original response is returned
+  - no new execution lease
+  invariants:
+  - INV-001
+  - INV-004
+  metrics:
+  - replays_served
+  - terminal_rewrites_rejected
+  limitations:
+  - does not validate durable replay after process restart
+- id: DIST-001
+  version: '1.0'
+  title: Same key across multiple processes
+  gate: V2
+  layer: L2
+  implementation_status: BLOCKED
+  validation_status: NOT_EXECUTED
+  blocked_by:
+  - durable registry adapter
+  - versioned uniqueness constraint
+  stimulus:
+  - submit the same logical request from independent processes
+  expected:
+  - one authoritative acquisition
+  - all contenders converge on non-executing decisions
+  invariants:
+  - INV-001
+  - INV-003
+  - INV-008
+  metrics:
+  - acquisitions_granted
+  - duplicate_effects_observed
+  - decision_latency
+- id: DIST-002
+  version: '1.0'
+  title: Transaction retry during acquisition
+  gate: V2
+  layer: L2
+  implementation_status: BLOCKED
+  validation_status: NOT_EXECUTED
+  blocked_by:
+  - durable registry adapter
+  - observable transaction retry injection
+  stimulus:
+  - inject a retryable transaction abort during first acquisition
+  expected:
+  - retry converges on one decision
+  - no irreversible effect occurs inside retry callback
+  invariants:
+  - INV-001
+  - INV-006
+  - INV-008
+  metrics:
+  - transaction_retries
+  - acquisitions_granted
+  - duplicate_effects_observed
+- id: DIST-003
+  version: '1.0'
+  title: Process death after acquisition
+  gate: V2
+  layer: L2
+  implementation_status: BLOCKED
+  validation_status: NOT_EXECUTED
+  blocked_by:
+  - durable registry adapter
+  - multi-process harness
+  stimulus:
+  - terminate the lease holder after acquisition and before terminal transition
+  expected:
+  - record remains pending until policy expiry
+  - another process reacquires with a new lease
+  invariants:
+  - INV-001
+  - INV-003
+  - INV-008
+  metrics:
+  - recovery_time
+  - reacquisitions
+  - stale_completions_rejected
+- id: ADMIT-001
+  version: '1.0'
+  title: Duplicate storm
+  gate: V3
+  layer: L3
+  implementation_status: PROPOSED
+  validation_status: NOT_EXECUTED
+  stimulus:
+  - send a bounded, predeclared burst using one tenant, key and hash
+  expected:
+  - one authoritative record
+  - bounded work amplification
+  - explicit duplicate decisions
+  invariants:
+  - INV-001
+  - INV-005
+  - INV-006
+  metrics:
+  - submissions_received
+  - submissions_admitted
+  - pending_decisions
+  - memory_use
+- id: ADMIT-002
+  version: '1.0'
+  title: High-cardinality unique-key flood
+  gate: V3
+  layer: L3
+  implementation_status: PROPOSED
+  validation_status: NOT_EXECUTED
+  stimulus:
+  - send predeclared unique keys above the tenant and global admission limits
+  expected:
+  - excess requests are rejected before expensive allocation
+  - state growth remains bounded
+  invariants:
+  - INV-005
+  - INV-007
+  metrics:
+  - new_keys_per_tenant
+  - submissions_rejected
+  - storage_growth
+  - memory_use
+- id: ADMIT-003
+  version: '1.0'
+  title: Noisy tenant
+  gate: V3
+  layer: L3
+  implementation_status: PROPOSED
+  validation_status: NOT_EXECUTED
+  stimulus:
+  - one tenant consumes its configured admission budget while another sends normal traffic
+  expected:
+  - noisy tenant is constrained
+  - reserved capacity for the other tenant remains available
+  invariants:
+  - INV-005
+  - INV-007
+  metrics:
+  - rejections_by_tenant
+  - admissions_by_tenant
+  - queue_wait_time
+- id: ADMIT-004
+  version: '1.0'
+  title: Global pending saturation
+  gate: V3
+  layer: L3
+  implementation_status: PROPOSED
+  validation_status: NOT_EXECUTED
+  stimulus:
+  - hold admitted operations pending until the global ceiling is reached
+  expected:
+  - new work is rejected or shed using an explicit reason code
+  - hard limit is not exceeded
+  invariants:
+  - INV-005
+  - INV-006
+  metrics:
+  - global_pending_operations
+  - active_leases
+  - submissions_rejected
+- id: ADMIT-005
+  version: '1.0'
+  title: Oversized payload
+  gate: V3
+  layer: L3
+  implementation_status: PROPOSED
+  validation_status: NOT_EXECUTED
+  stimulus:
+  - submit payloads below, at and above the configured maximum
+  expected:
+  - oversized payload is rejected before durable allocation
+  - boundary payload is handled deterministically
+  invariants:
+  - INV-005
+  metrics:
+  - payload_bytes
+  - rejections_by_reason
+  - authoritative_records_created
+- id: ADMIT-006
+  version: '1.0'
+  title: Queue saturation
+  gate: V3
+  layer: L3
+  implementation_status: PROPOSED
+  validation_status: NOT_EXECUTED
+  stimulus:
+  - drive the bounded queue to its declared hard limit
+  expected:
+  - queue depth remains bounded
+  - new work is rejected or shed
+  - recovery occurs below threshold
+  invariants:
+  - INV-005
+  - INV-006
+  metrics:
+  - queue_depth
+  - queue_wait_time
+  - shed_load
+  - recovery_time
+- id: PROV-001
+  version: '1.0'
+  title: Intermittent provider timeout
+  gate: V4
+  layer: L3
+  implementation_status: PROPOSED
+  validation_status: NOT_EXECUTED
+  fault_profile:
+  - seeded intermittent timeout
+  expected:
+  - timeouts consume retry budget
+  - backoff and jitter are observable
+  - no duplicate effect
+  invariants:
+  - INV-006
+  - INV-009
+  metrics:
+  - retry_budget_consumption
+  - provider_state_transitions
+  - duplicate_effects_observed
+- id: PROV-002
+  version: '1.0'
+  title: Consecutive failures and quarantine
+  gate: V4
+  layer: L3
+  implementation_status: PROPOSED
+  validation_status: NOT_EXECUTED
+  fault_profile:
+  - deterministic failures crossing configured thresholds
+  expected:
+  - HEALTHY transitions through policy states to QUARANTINED
+  - normal traffic stops
+  invariants:
+  - INV-006
+  - INV-009
+  metrics:
+  - consecutive_failures
+  - quarantine_time
+  - requests_while_quarantined
+- id: PROV-003
+  version: '1.0'
+  title: Premature recovery attempt
+  gate: V4
+  layer: L3
+  implementation_status: PROPOSED
+  validation_status: NOT_EXECUTED
+  fault_profile:
+  - one successful probe after repeated failure
+  expected:
+  - one success does not restore full traffic
+  - minimum state duration and success threshold hold
+  invariants:
+  - INV-009
+  metrics:
+  - probe_results
+  - progressive_recovery_percentage
+  - uncontrolled_failback_count
+- id: PROV-004
+  version: '1.0'
+  title: Failure during progressive recovery
+  gate: V4
+  layer: L3
+  implementation_status: PROPOSED
+  validation_status: NOT_EXECUTED
+  fault_profile:
+  - failure after partial traffic restoration
+  expected:
+  - traffic is reduced or provider is requarantined according to policy
+  - execution state remains intact
+  invariants:
+  - INV-006
+  - INV-009
+  metrics:
+  - recovery_percentage
+  - state_transitions
+  - oscillation_count
+- id: PROV-005
+  version: '1.0'
+  title: Retry-budget exhaustion
+  gate: V4
+  layer: L3
+  implementation_status: PROPOSED
+  validation_status: NOT_EXECUTED
+  fault_profile:
+  - retryable failures until budget exhaustion
+  expected:
+  - further retries stop
+  - terminal or pending outcome follows explicit policy
+  invariants:
+  - INV-006
+  - INV-008
+  - INV-009
+  metrics:
+  - retry_budget_consumption
+  - attempted_retries
+  - shed_load
+- id: PROV-006
+  version: '1.0'
+  title: Timeout after external success
+  gate: V4
+  layer: L3
+  implementation_status: PROPOSED
+  validation_status: NOT_EXECUTED
+  fault_profile:
+  - provider commits irreversible effect but caller times out
+  expected:
+  - reconciliation or provider idempotency prevents blind duplicate effect
+  - ambiguity is evidenced
+  invariants:
+  - INV-001
+  - INV-006
+  - INV-008
+  metrics:
+  - provider_status_queries
+  - duplicate_effects_observed
+  - evidence_gaps_detected
+  safety:
+  - use a simulator or explicitly reversible sandbox effect
+- id: FAIL-001
+  version: '1.0'
+  title: Worker restart with pending operations
+  gate: V5
+  layer: L4
+  implementation_status: BLOCKED
+  validation_status: NOT_EXECUTED
+  blocked_by:
+  - durable registry adapter
+  - restartable worker harness
+  expected:
+  - pending operations follow explicit recovery policy
+  - completed operations are not repeated
+  invariants:
+  - INV-001
+  - INV-003
+  - INV-008
+  metrics:
+  - recovery_time
+  - unresolved_pending_operations
+  - duplicate_effects_observed
+- id: FAIL-002
+  version: '1.0'
+  title: Durable registry failover
+  gate: V5
+  layer: L4
+  implementation_status: BLOCKED
+  validation_status: NOT_EXECUTED
+  blocked_by:
+  - durable registry topology with authorized failover
+  expected:
+  - one authoritative history remains
+  - recovery point and recovery time are measured
+  invariants:
+  - INV-001
+  - INV-004
+  - INV-008
+  metrics:
+  - recovery_point
+  - recovery_time
+  - evidence_gaps_detected
+- id: FAIL-003
+  version: '1.0'
+  title: Broker redelivery after consumer restart
+  gate: V5
+  layer: L4
+  implementation_status: BLOCKED
+  validation_status: NOT_EXECUTED
+  blocked_by:
+  - message transport adapter
+  - durable registry adapter
+  expected:
+  - redelivery converges on replay or pending decision
+  - protected effect is not duplicated
+  invariants:
+  - INV-001
+  - INV-006
+  - INV-008
+  metrics:
+  - redeliveries
+  - replays_served
+  - duplicate_effects_observed
+- id: FAIL-004
+  version: '1.0'
+  title: Delayed outbox publication
+  gate: V5
+  layer: L4
+  implementation_status: BLOCKED
+  validation_status: NOT_EXECUTED
+  blocked_by:
+  - transactional outbox
+  - evidence reconciliation
+  expected:
+  - domain effect and outbox remain reconcilable
+  - late publication preserves causality
+  invariants:
+  - INV-008
+  metrics:
+  - outbox_delay
+  - evidence_publication_delay
+  - evidence_gaps_detected
+- id: FAIL-005
+  version: '1.0'
+  title: Evidence sink interruption
+  gate: V5
+  layer: L4
+  implementation_status: BLOCKED
+  validation_status: NOT_EXECUTED
+  blocked_by:
+  - durable evidence sink
+  - reconciliation process
+  expected:
+  - gap is detected
+  - publication resumes without duplicate protected effect
+  - bundle records interruption
+  invariants:
+  - INV-008
+  metrics:
+  - evidence_gaps_detected
+  - recovery_time
+  - duplicate_evidence_events
+- id: RECOV-001
+  version: '1.0'
+  title: Controlled failback
+  gate: V5
+  layer: L4
+  implementation_status: PROPOSED
+  validation_status: NOT_EXECUTED
+  stimulus:
+  - recover the primary path after validated failover
+  - restore traffic progressively
+  expected:
+  - failback is explicit, observable and reversible
+  - one authoritative history is preserved
+  invariants:
+  - INV-001
+  - INV-008
+  - INV-009
+  metrics:
+  - failback_time
+  - progressive_recovery_percentage
+  - uncontrolled_failback_count
+- id: RET-001
+  version: '1.0'
+  title: Purge after the idempotency horizon
+  gate: V5
+  layer: L4
+  implementation_status: PROPOSED
+  validation_status: NOT_EXECUTED
+  stimulus:
+  - age an eligible terminal record beyond its configured horizon
+  - run deterministic purge
+  expected:
+  - eligible record is purged
+  - required evidence remains according to policy
+  invariants:
+  - INV-004
+  - INV-008
+  metrics:
+  - records_purged
+  - records_retained
+  - evidence_gaps_detected
+- id: RET-002
+  version: '1.0'
+  title: Purge blocked by legal or evidence hold
+  gate: V5
+  layer: L4
+  implementation_status: PROPOSED
+  validation_status: NOT_EXECUTED
+  stimulus:
+  - apply a valid hold to an otherwise purge-eligible record
+  - run purge
+  expected:
+  - record is retained
+  - hold decision and policy snapshot are evidenced
+  invariants:
+  - INV-008
+  metrics:
+  - purge_blocks_by_reason
+  - records_retained
+- id: RET-003
+  version: '1.0'
+  title: Terminal record retained through duplicate window
+  gate: V5
+  layer: L4
+  implementation_status: PROPOSED
+  validation_status: NOT_EXECUTED
+  stimulus:
+  - resubmit a completed request before the configured idempotency horizon
+  expected:
+  - terminal result is replayed
+  - record is not purged or reacquired
+  invariants:
+  - INV-001
+  - INV-004
+  metrics:
+  - replays_served
+  - premature_purge_attempts
+- id: CLAIM-001
+  version: '1.0'
+  title: Unsupported claim rejected by registry validation
+  gate: V0
+  layer: L0
+  implementation_status: PROPOSED
+  validation_status: NOT_EXECUTED
+  stimulus:
+  - declare a claim whose required gate has no valid evidence reference
+  expected:
+  - claim validation fails
+  - claim cannot be promoted to a verified status
+  invariants:
+  - INV-010
+  metrics:
+  - invalid_claims
+  - missing_evidence_references
