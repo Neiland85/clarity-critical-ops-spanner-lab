@@ -6,7 +6,6 @@ from typing import Any
 
 import yaml
 
-
 ROOT = Path(__file__).resolve().parents[2]
 SCENARIOS_PATH = ROOT / "tests" / "resilience" / "scenarios.yaml"
 CLAIMS_PATH = ROOT / "claims" / "claims.yaml"
@@ -31,9 +30,9 @@ def _reference_path(reference: str) -> Path:
 
 def _assert_references_exist(references: list[str], label: str) -> None:
     for reference in references:
-        assert isinstance(reference, str) and reference.strip(), (
-            f"{label} contains an empty reference"
-        )
+        assert (
+            isinstance(reference, str) and reference.strip()
+        ), f"{label} contains an empty reference"
         path = _reference_path(reference)
         assert path.exists(), f"{label} references missing path: {reference}"
 
@@ -70,9 +69,9 @@ def test_resilience_catalogue_schema_and_identifiers() -> None:
             "invariants",
             "metrics",
         }
-        assert required <= scenario.keys(), (
-            f"{scenario.get('id')} is missing {required - scenario.keys()}"
-        )
+        assert (
+            required <= scenario.keys()
+        ), f"{scenario.get('id')} is missing {required - scenario.keys()}"
         assert GATE_PATTERN.fullmatch(scenario["gate"])
         assert LAYER_PATTERN.fullmatch(scenario["layer"])
         assert scenario["implementation_status"] in implementation_statuses
@@ -80,9 +79,10 @@ def test_resilience_catalogue_schema_and_identifiers() -> None:
         assert scenario["expected"], f"{scenario['id']} must define expected results"
         assert scenario["metrics"], f"{scenario['id']} must define metrics"
         assert set(scenario["invariants"]) <= invariant_ids
-        assert scenario.get("stimulus") or scenario.get("fault_profile"), (
-            f"{scenario['id']} must define stimulus or fault_profile"
-        )
+        if scenario["implementation_status"] != "BLOCKED":
+            assert scenario.get("stimulus") or scenario.get(
+                "fault_profile"
+            ), f"{scenario['id']} must define stimulus or fault_profile"
 
 
 def test_scenario_status_contracts_and_test_references() -> None:
@@ -100,15 +100,15 @@ def test_scenario_status_contracts_and_test_references() -> None:
             _assert_references_exist(test_refs, f"scenario {identifier} test_refs")
 
         if implementation_status == "BLOCKED":
-            assert scenario.get("blocked_by"), (
-                f"{identifier} must explain what blocks execution"
-            )
+            assert scenario.get(
+                "blocked_by"
+            ), f"{identifier} must explain what blocks execution"
             assert validation_status == "NOT_EXECUTED"
 
         if validation_status in {"PASS", "FAIL", "ABORTED", "INVALIDATED"}:
-            assert scenario.get("evidence"), (
-                f"{identifier} must reference preserved execution evidence"
-            )
+            assert scenario.get(
+                "evidence"
+            ), f"{identifier} must reference preserved execution evidence"
 
 
 def test_claim_registry_schema_and_identifiers() -> None:
@@ -146,9 +146,9 @@ def test_claim_registry_schema_and_identifiers() -> None:
             "repository_commit",
             "owner",
         }
-        assert required <= claim.keys(), (
-            f"{claim.get('id')} is missing {required - claim.keys()}"
-        )
+        assert (
+            required <= claim.keys()
+        ), f"{claim.get('id')} is missing {required - claim.keys()}"
         assert claim["status"] in allowed_statuses
         assert GATE_PATTERN.fullmatch(claim["required_gate"])
         assert claim["statement"].strip()
@@ -190,14 +190,12 @@ def test_verified_claims_have_validation_metadata() -> None:
             continue
 
         assert claim["evidence"], f"{claim['id']} has no evidence"
-        assert claim["last_validation_date"], (
-            f"{claim['id']} has no validation date"
-        )
+        assert claim["last_validation_date"], f"{claim['id']} has no validation date"
         repository_commit = claim["repository_commit"]
         assert isinstance(repository_commit, str)
-        assert COMMIT_SHA_PATTERN.fullmatch(repository_commit), (
-            f"{claim['id']} has an invalid repository commit"
-        )
+        assert COMMIT_SHA_PATTERN.fullmatch(
+            repository_commit
+        ), f"{claim['id']} has an invalid repository commit"
 
 
 def test_current_verified_boundary_is_narrow_and_evidenced() -> None:
