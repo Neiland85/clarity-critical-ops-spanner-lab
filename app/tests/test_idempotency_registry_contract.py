@@ -16,9 +16,7 @@ from app.idempotency import (
 
 RegistryFactory = Callable[[], IdempotencyRegistry]
 
-REGISTRY_FACTORIES = (
-    pytest.param(InMemoryIdempotencyRegistry, id="in-memory"),
-)
+REGISTRY_FACTORIES = (pytest.param(InMemoryIdempotencyRegistry, id="in-memory"),)
 
 
 @pytest.fixture(params=REGISTRY_FACTORIES)
