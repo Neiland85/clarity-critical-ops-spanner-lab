@@ -39,11 +39,27 @@ _COLUMNS = (
     "FailedAt",
     "LastExpiredAt",
 )
-_SELECT_SQL = f"""
-SELECT {", ".join(_COLUMNS)}
-FROM {_TABLE}
+_SELECT_SQL = """
+SELECT
+  IdempotencyScope,
+  IdempotencyKey,
+  OperationType,
+  RequestHash,
+  Status,
+  ResponsePayload,
+  ErrorPayload,
+  CreatedAt,
+  UpdatedAt,
+  LeaseToken,
+  LeaseExpiresAt,
+  Attempt,
+  CompletedAt,
+  FailedAt,
+  LastExpiredAt
+FROM IdempotencyRecords
 WHERE IdempotencyScope = @scope AND IdempotencyKey = @key
 """
+
 _KEY_TYPES = {"scope": param_types.STRING, "key": param_types.STRING}
 
 
