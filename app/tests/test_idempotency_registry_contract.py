@@ -1,22 +1,150 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import cast
+from datetime import UTC, datetime, timedelta
+from threading import RLock
+from typing import Any, cast
 
 import pytest
 
 from app.idempotency import (
+    ExpiredExecutionLeaseError,
     IdempotencyDecision,
     IdempotencyRegistry,
     IdempotencyStatus,
     InMemoryIdempotencyRegistry,
     RegistryResult,
+    SpannerIdempotencyRegistry,
+    StaleExecutionLeaseError,
     stable_request_hash,
 )
 
 RegistryFactory = Callable[[], IdempotencyRegistry]
+_COLUMNS = (
+    "IdempotencyScope",
+    "IdempotencyKey",
+    "OperationType",
+    "RequestHash",
+    "Status",
+    "ResponsePayload",
+    "ErrorPayload",
+    "CreatedAt",
+    "UpdatedAt",
+    "LeaseToken",
+    "LeaseExpiresAt",
+    "Attempt",
+    "CompletedAt",
+    "FailedAt",
+    "LastExpiredAt",
+)
 
-REGISTRY_FACTORIES = (pytest.param(InMemoryIdempotencyRegistry, id="in-memory"),)
+
+class MutableClock:
+    def __init__(self) -> None:
+        self.now = datetime(2026, 7, 12, 12, 0, tzinfo=UTC)
+
+    def __call__(self) -> datetime:
+        return self.now
+
+    def advance(self, delta: timedelta) -> None:
+        self.now += delta
+
+
+class FakeSpannerReader:
+    def __init__(
+        self,
+        rows: dict[tuple[str, str], dict[str, Any]],
+        clock: MutableClock,
+    ) -> None:
+        self._rows = rows
+        self._clock = clock
+
+    def execute_sql(
+        self,
+        sql: str,
+        *,
+        params: dict[str, Any] | None = None,
+        param_types: dict[str, Any] | None = None,
+    ) -> list[tuple[Any, ...]]:
+        del param_types
+        if "CURRENT_TIMESTAMP" in sql:
+            return [(self._clock(),)]
+        assert params is not None
+        row = self._rows.get((params["scope"], params["key"]))
+        return [] if row is None else [tuple(row[column] for column in _COLUMNS)]
+
+
+class FakeSpannerTransaction(FakeSpannerReader):
+    def insert(
+        self,
+        *,
+        table: str,
+        columns: tuple[str, ...],
+        values: list[tuple[Any, ...]],
+    ) -> None:
+        assert table == "IdempotencyRecords"
+        for values_row in values:
+            row = dict(zip(columns, values_row, strict=True))
+            key = (row["IdempotencyScope"], row["IdempotencyKey"])
+            if key in self._rows:
+                raise RuntimeError("duplicate primary key")
+            self._rows[key] = row
+
+    def update(
+        self,
+        *,
+        table: str,
+        columns: tuple[str, ...],
+        values: list[tuple[Any, ...]],
+    ) -> None:
+        assert table == "IdempotencyRecords"
+        for values_row in values:
+            row = dict(zip(columns, values_row, strict=True))
+            key = (row["IdempotencyScope"], row["IdempotencyKey"])
+            if key not in self._rows:
+                raise RuntimeError("missing primary key")
+            self._rows[key] = row
+
+
+class FakeSpannerSnapshot(FakeSpannerReader):
+    def __enter__(self) -> FakeSpannerSnapshot:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        return None
+
+
+class FakeSpannerDatabase:
+    def __init__(self, clock: MutableClock) -> None:
+        self.clock = clock
+        self.rows: dict[tuple[str, str], dict[str, Any]] = {}
+        self._lock = RLock()
+
+    def run_in_transaction(self, callback: Any) -> Any:
+        with self._lock:
+            return callback(FakeSpannerTransaction(self.rows, self.clock))
+
+    def snapshot(self) -> FakeSpannerSnapshot:
+        return FakeSpannerSnapshot(self.rows, self.clock)
+
+
+def new_spanner_registry(
+    *,
+    clock: MutableClock | None = None,
+) -> SpannerIdempotencyRegistry:
+    effective_clock = clock or MutableClock()
+    tokens = iter(("lease-1", "lease-2", "lease-3"))
+    return SpannerIdempotencyRegistry(
+        FakeSpannerDatabase(effective_clock),
+        pending_ttl=timedelta(seconds=30),
+        token_factory=lambda: next(tokens),
+    )
+
+
+REGISTRY_FACTORIES = (
+    pytest.param(InMemoryIdempotencyRegistry, id="in-memory"),
+    pytest.param(new_spanner_registry, id="spanner-fake"),
+)
 
 
 @pytest.fixture(params=REGISTRY_FACTORIES)
@@ -128,3 +256,79 @@ def test_unknown_identity_returns_no_record(
     registry: IdempotencyRegistry,
 ) -> None:
     assert registry.get("unknown", idempotency_scope="tenant-a") is None
+
+
+def test_spanner_expired_record_is_reacquired_with_new_fencing_token() -> None:
+    clock = MutableClock()
+    registry = new_spanner_registry(clock=clock)
+    first = start_operation(registry)
+    clock.advance(timedelta(seconds=30))
+
+    reacquired = start_operation(registry)
+    record = registry.get("operation-1", idempotency_scope="tenant-a")
+
+    assert reacquired.decision == IdempotencyDecision.REACQUIRED
+    assert reacquired.attempt == 2
+    assert reacquired.lease_token == "lease-2"
+    assert reacquired.lease_token != first.lease_token
+    assert record is not None
+    assert record.last_expired_at == clock.now
+
+
+def test_spanner_old_worker_is_fenced_after_reacquisition() -> None:
+    clock = MutableClock()
+    registry = new_spanner_registry(clock=clock)
+    first = start_operation(registry)
+    clock.advance(timedelta(seconds=30))
+    start_operation(registry)
+
+    with pytest.raises(StaleExecutionLeaseError):
+        registry.complete(
+            idempotency_scope="tenant-a",
+            idempotency_key="operation-1",
+            lease_token=required_lease_token(first),
+            response_payload={"transfer_id": "stale"},
+        )
+
+
+def test_spanner_late_completion_persists_expired_state() -> None:
+    clock = MutableClock()
+    registry = new_spanner_registry(clock=clock)
+    acquired = start_operation(registry)
+    clock.advance(timedelta(seconds=30))
+
+    with pytest.raises(ExpiredExecutionLeaseError):
+        registry.complete(
+            idempotency_scope="tenant-a",
+            idempotency_key="operation-1",
+            lease_token=required_lease_token(acquired),
+            response_payload={"transfer_id": "late"},
+        )
+
+    record = registry.get("operation-1", idempotency_scope="tenant-a")
+    assert record is not None
+    assert record.status == IdempotencyStatus.EXPIRED
+    assert record.last_expired_at == clock.now
+
+
+def test_spanner_expiry_sweeper_is_transactional_and_idempotent() -> None:
+    clock = MutableClock()
+    registry = new_spanner_registry(clock=clock)
+    start_operation(registry)
+
+    assert registry.expire_pending("operation-1", idempotency_scope="tenant-a") is False
+    clock.advance(timedelta(seconds=30))
+    assert registry.expire_pending("operation-1", idempotency_scope="tenant-a") is True
+    assert registry.expire_pending("operation-1", idempotency_scope="tenant-a") is False
+
+
+def test_spanner_schema_limits_fail_before_mutation() -> None:
+    registry = new_spanner_registry()
+
+    with pytest.raises(ValueError, match="idempotency_key"):
+        registry.start(
+            idempotency_scope="tenant-a",
+            idempotency_key="x" * 257,
+            operation_type="transfer.create",
+            request_hash="hash-100",
+        )
