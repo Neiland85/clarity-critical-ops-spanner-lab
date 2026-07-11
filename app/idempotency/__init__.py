@@ -1,4 +1,5 @@
 from app.execution.hashing import stable_request_hash
+from app.idempotency.port import IdempotencyRegistry
 from app.idempotency.registry import (
     ExpiredExecutionLeaseError,
     IdempotencyDecision,
@@ -15,6 +16,7 @@ __all__ = [
     "ExpiredExecutionLeaseError",
     "IdempotencyDecision",
     "IdempotencyRecord",
+    "IdempotencyRegistry",
     "IdempotencyRegistryError",
     "IdempotencyStatus",
     "InMemoryIdempotencyRegistry",
