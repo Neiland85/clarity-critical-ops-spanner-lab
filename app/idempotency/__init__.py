@@ -11,6 +11,7 @@ from app.idempotency.registry import (
     RegistryResult,
     StaleExecutionLeaseError,
 )
+from app.idempotency.spanner import SpannerIdempotencyRegistry
 
 __all__ = [
     "ExpiredExecutionLeaseError",
@@ -22,6 +23,7 @@ __all__ = [
     "InMemoryIdempotencyRegistry",
     "InvalidIdempotencyTransitionError",
     "RegistryResult",
+    "SpannerIdempotencyRegistry",
     "StaleExecutionLeaseError",
     "stable_request_hash",
 ]
