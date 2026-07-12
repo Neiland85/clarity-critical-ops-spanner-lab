@@ -15,10 +15,17 @@ from app.idempotency.registry import (
     ExpiredExecutionLeaseError,
     IdempotencyDecision,
     IdempotencyRecord,
+    IdempotencyRecordSnapshot,
     IdempotencyStatus,
     InvalidIdempotencyTransitionError,
     RegistryResult,
     StaleExecutionLeaseError,
+)
+from app.idempotency.value_semantics import (
+    FrozenPayload,
+    freeze_payload,
+    thaw_payload,
+    validate_identity,
 )
 
 _TABLE = "IdempotencyRecords"
@@ -111,7 +118,7 @@ class SpannerIdempotencyRegistry:
         idempotency_key: str,
         operation_type: str,
         request_hash: str,
-        idempotency_scope: str = "global",
+        idempotency_scope: str,
     ) -> RegistryResult:
         self._validate_identity(
             idempotency_scope,
@@ -167,8 +174,8 @@ class SpannerIdempotencyRegistry:
         idempotency_key: str,
         lease_token: str,
         response_payload: dict[str, Any],
-        idempotency_scope: str = "global",
-    ) -> IdempotencyRecord:
+        idempotency_scope: str,
+    ) -> IdempotencyRecordSnapshot:
         return self._finish(
             scope=idempotency_scope,
             key=idempotency_key,
@@ -183,8 +190,8 @@ class SpannerIdempotencyRegistry:
         idempotency_key: str,
         lease_token: str,
         error_payload: dict[str, Any],
-        idempotency_scope: str = "global",
-    ) -> IdempotencyRecord:
+        idempotency_scope: str,
+    ) -> IdempotencyRecordSnapshot:
         return self._finish(
             scope=idempotency_scope,
             key=idempotency_key,
@@ -197,7 +204,7 @@ class SpannerIdempotencyRegistry:
         self,
         idempotency_key: str,
         *,
-        idempotency_scope: str = "global",
+        idempotency_scope: str,
     ) -> bool:
         def transaction_body(transaction: Any) -> bool:
             record = self._read(
@@ -220,14 +227,15 @@ class SpannerIdempotencyRegistry:
         self,
         idempotency_key: str,
         *,
-        idempotency_scope: str = "global",
-    ) -> IdempotencyRecord | None:
+        idempotency_scope: str,
+    ) -> IdempotencyRecordSnapshot | None:
         with self._database.snapshot() as snapshot:
-            return self._read(
+            record = self._read(
                 snapshot,
                 scope=idempotency_scope,
                 key=idempotency_key,
             )
+            return None if record is None else self._snapshot(record)
 
     def _finish(
         self,
@@ -237,7 +245,7 @@ class SpannerIdempotencyRegistry:
         lease_token: str,
         status: IdempotencyStatus,
         payload: dict[str, Any],
-    ) -> IdempotencyRecord:
+    ) -> IdempotencyRecordSnapshot:
         def transaction_body(transaction: Any) -> _TransitionOutcome:
             record = self._required(transaction, scope=scope, key=key)
             now = self._transaction_now(transaction)
@@ -253,11 +261,11 @@ class SpannerIdempotencyRegistry:
             record.status = status
             record.updated_at = now
             if status == IdempotencyStatus.COMPLETED:
-                record.response_payload = dict(payload)
+                record.response_payload = freeze_payload(payload)
                 record.error_payload = None
                 record.completed_at = now
             else:
-                record.error_payload = dict(payload)
+                record.error_payload = freeze_payload(payload)
                 record.response_payload = None
                 record.failed_at = now
             self._write(transaction, record)
@@ -268,7 +276,7 @@ class SpannerIdempotencyRegistry:
             raise outcome.error
         if outcome.record is None:
             raise RuntimeError("transaction returned no record or error")
-        return outcome.record
+        return self._snapshot(outcome.record)
 
     def _read(self, reader: Any, *, scope: str, key: str) -> IdempotencyRecord | None:
         rows = reader.execute_sql(
@@ -344,8 +352,9 @@ class SpannerIdempotencyRegistry:
         )
 
     @staticmethod
-    def _encode(payload: dict[str, Any] | None) -> JsonObject | None:
-        return None if payload is None else JsonObject(payload)
+    def _encode(payload: FrozenPayload | None) -> JsonObject | None:
+        thawed = thaw_payload(payload)
+        return None if thawed is None else JsonObject(thawed)
 
     @staticmethod
     def _decode(payload: Any) -> dict[str, Any] | None:
@@ -354,7 +363,7 @@ class SpannerIdempotencyRegistry:
         decoded = json.loads(payload) if isinstance(payload, str) else payload
         if not isinstance(decoded, dict):
             raise TypeError("Spanner JSON payload must decode to an object")
-        return dict(decoded)
+        return freeze_payload(decoded)
 
     def _new_record(
         self,
@@ -418,6 +427,13 @@ class SpannerIdempotencyRegistry:
     def _observed(
         decision: IdempotencyDecision, record: IdempotencyRecord
     ) -> RegistryResult:
+        if decision == IdempotencyDecision.CONFLICT:
+            return RegistryResult(
+                decision=decision,
+                status=record.status,
+                attempt=record.attempt,
+            )
+
         return RegistryResult(
             decision=decision,
             status=record.status,
@@ -427,8 +443,8 @@ class SpannerIdempotencyRegistry:
                 if decision == IdempotencyDecision.PENDING
                 else None
             ),
-            response_payload=record.response_payload,
-            error_payload=record.error_payload,
+            response_payload=freeze_payload(record.response_payload),
+            error_payload=freeze_payload(record.error_payload),
         )
 
     @staticmethod
@@ -444,19 +460,35 @@ class SpannerIdempotencyRegistry:
         )
 
     @staticmethod
+    def _snapshot(record: IdempotencyRecord) -> IdempotencyRecordSnapshot:
+        return IdempotencyRecordSnapshot(
+            idempotency_scope=record.idempotency_scope,
+            idempotency_key=record.idempotency_key,
+            operation_type=record.operation_type,
+            request_hash=record.request_hash,
+            status=record.status,
+            response_payload=freeze_payload(record.response_payload),
+            error_payload=freeze_payload(record.error_payload),
+            created_at=record.created_at,
+            updated_at=record.updated_at,
+            lease_token=record.lease_token,
+            lease_expires_at=record.lease_expires_at,
+            attempt=record.attempt,
+            completed_at=record.completed_at,
+            failed_at=record.failed_at,
+            last_expired_at=record.last_expired_at,
+        )
+
+    @staticmethod
     def _validate_identity(
         scope: str, key: str, operation_type: str, request_hash: str
     ) -> None:
-        for name, value, maximum in (
-            ("idempotency_scope", scope, 256),
-            ("idempotency_key", key, 256),
-            ("operation_type", operation_type, 256),
-            ("request_hash", request_hash, 128),
-        ):
-            if not value.strip():
-                raise ValueError(f"{name} must not be empty")
-            if len(value) > maximum:
-                raise ValueError(f"{name} must be at most {maximum} characters")
+        validate_identity(
+            idempotency_scope=scope,
+            idempotency_key=key,
+            operation_type=operation_type,
+            request_hash=request_hash,
+        )
 
     def _new_token(self) -> str:
         token = self._token_factory()

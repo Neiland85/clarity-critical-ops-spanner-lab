@@ -150,6 +150,7 @@ def test_completed_request_replays_original_response() -> None:
     created = start_transfer(registry)
 
     registry.complete(
+        idempotency_scope="global",
         idempotency_key="key-1",
         lease_token=required_lease_token(created),
         response_payload={
@@ -173,6 +174,7 @@ def test_failed_request_returns_failed_decision() -> None:
     created = start_transfer(registry)
 
     registry.fail(
+        idempotency_scope="global",
         idempotency_key="key-1",
         lease_token=required_lease_token(created),
         error_payload={
@@ -213,6 +215,7 @@ def test_empty_inputs_are_rejected() -> None:
 
     with pytest.raises(ValueError):
         registry.start(
+            idempotency_scope="global",
             idempotency_key="",
             operation_type="transfer.create",
             request_hash="hash",
@@ -266,7 +269,7 @@ def test_expired_pending_operation_is_reacquired_with_new_lease() -> None:
 
     clock.advance(timedelta(seconds=30))
     second = start_transfer(registry)
-    record = registry.get("key-1")
+    record = registry.get("key-1", idempotency_scope="global")
 
     assert second.decision == IdempotencyDecision.REACQUIRED
     assert second.status == IdempotencyStatus.PENDING
@@ -287,6 +290,7 @@ def test_stale_worker_cannot_complete_reacquired_operation() -> None:
 
     with pytest.raises(StaleExecutionLeaseError):
         registry.complete(
+            idempotency_scope="global",
             idempotency_key="key-1",
             lease_token=required_lease_token(first),
             response_payload={
@@ -295,6 +299,7 @@ def test_stale_worker_cannot_complete_reacquired_operation() -> None:
         )
 
     registry.complete(
+        idempotency_scope="global",
         idempotency_key="key-1",
         lease_token=required_lease_token(second),
         response_payload={
@@ -302,7 +307,7 @@ def test_stale_worker_cannot_complete_reacquired_operation() -> None:
         },
     )
 
-    record = registry.get("key-1")
+    record = registry.get("key-1", idempotency_scope="global")
 
     assert record is not None
     assert record.response_payload == {
@@ -318,6 +323,7 @@ def test_worker_cannot_complete_after_its_lease_expires() -> None:
 
     with pytest.raises(ExpiredExecutionLeaseError):
         registry.complete(
+            idempotency_scope="global",
             idempotency_key="key-1",
             lease_token=required_lease_token(created),
             response_payload={
@@ -325,7 +331,7 @@ def test_worker_cannot_complete_after_its_lease_expires() -> None:
             },
         )
 
-    record = registry.get("key-1")
+    record = registry.get("key-1", idempotency_scope="global")
 
     assert record is not None
     assert record.status == IdempotencyStatus.EXPIRED
@@ -336,13 +342,13 @@ def test_expire_pending_marks_due_operation_and_allows_reacquisition() -> None:
     registry, clock = create_registry()
     first = start_transfer(registry)
 
-    assert registry.expire_pending("key-1") is False
+    assert registry.expire_pending("key-1", idempotency_scope="global") is False
 
     clock.advance(timedelta(seconds=30))
 
-    assert registry.expire_pending("key-1") is True
+    assert registry.expire_pending("key-1", idempotency_scope="global") is True
 
-    expired = registry.get("key-1")
+    expired = registry.get("key-1", idempotency_scope="global")
 
     assert expired is not None
     assert expired.status == IdempotencyStatus.EXPIRED
@@ -360,6 +366,7 @@ def test_terminal_operation_cannot_be_completed_twice() -> None:
     lease_token = required_lease_token(created)
 
     registry.complete(
+        idempotency_scope="global",
         idempotency_key="key-1",
         lease_token=lease_token,
         response_payload={
@@ -369,6 +376,7 @@ def test_terminal_operation_cannot_be_completed_twice() -> None:
 
     with pytest.raises(InvalidIdempotencyTransitionError):
         registry.complete(
+            idempotency_scope="global",
             idempotency_key="key-1",
             lease_token=lease_token,
             response_payload={
@@ -382,6 +390,7 @@ def test_completed_operation_is_not_reacquired_after_ttl() -> None:
     created = start_transfer(registry)
 
     registry.complete(
+        idempotency_scope="global",
         idempotency_key="key-1",
         lease_token=required_lease_token(created),
         response_payload={
