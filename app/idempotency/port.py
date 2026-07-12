@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
-from app.idempotency.registry import IdempotencyRecord, RegistryResult
+from app.idempotency.registry import IdempotencyRecordSnapshot, RegistryResult
 
 
 @runtime_checkable
@@ -15,7 +15,7 @@ class IdempotencyRegistry(Protocol):
         idempotency_key: str,
         operation_type: str,
         request_hash: str,
-        idempotency_scope: str = "global",
+        idempotency_scope: str,
     ) -> RegistryResult: ...
 
     def complete(
@@ -24,8 +24,8 @@ class IdempotencyRegistry(Protocol):
         idempotency_key: str,
         lease_token: str,
         response_payload: dict[str, Any],
-        idempotency_scope: str = "global",
-    ) -> IdempotencyRecord: ...
+        idempotency_scope: str,
+    ) -> IdempotencyRecordSnapshot: ...
 
     def fail(
         self,
@@ -33,19 +33,19 @@ class IdempotencyRegistry(Protocol):
         idempotency_key: str,
         lease_token: str,
         error_payload: dict[str, Any],
-        idempotency_scope: str = "global",
-    ) -> IdempotencyRecord: ...
+        idempotency_scope: str,
+    ) -> IdempotencyRecordSnapshot: ...
 
     def expire_pending(
         self,
         idempotency_key: str,
         *,
-        idempotency_scope: str = "global",
+        idempotency_scope: str,
     ) -> bool: ...
 
     def get(
         self,
         idempotency_key: str,
         *,
-        idempotency_scope: str = "global",
-    ) -> IdempotencyRecord | None: ...
+        idempotency_scope: str,
+    ) -> IdempotencyRecordSnapshot | None: ...

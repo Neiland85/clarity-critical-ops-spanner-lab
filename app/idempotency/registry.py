@@ -8,6 +8,12 @@ from threading import RLock
 from typing import Any
 from uuid import uuid4
 
+from app.idempotency.value_semantics import (
+    FrozenPayload,
+    freeze_payload,
+    validate_identity,
+)
+
 
 class IdempotencyStatus(str, Enum):
     PENDING = "PENDING"
@@ -48,8 +54,8 @@ class RegistryResult:
     attempt: int
     lease_token: str | None = None
     lease_expires_at: datetime | None = None
-    response_payload: dict[str, Any] | None = None
-    error_payload: dict[str, Any] | None = None
+    response_payload: FrozenPayload | None = None
+    error_payload: FrozenPayload | None = None
 
 
 @dataclass
@@ -59,8 +65,8 @@ class IdempotencyRecord:
     operation_type: str
     request_hash: str
     status: IdempotencyStatus
-    response_payload: dict[str, Any] | None
-    error_payload: dict[str, Any] | None
+    response_payload: FrozenPayload | None
+    error_payload: FrozenPayload | None
     created_at: datetime
     updated_at: datetime
     lease_token: str
@@ -69,6 +75,25 @@ class IdempotencyRecord:
     completed_at: datetime | None = None
     failed_at: datetime | None = None
     last_expired_at: datetime | None = None
+
+
+@dataclass(frozen=True)
+class IdempotencyRecordSnapshot:
+    idempotency_scope: str
+    idempotency_key: str
+    operation_type: str
+    request_hash: str
+    status: IdempotencyStatus
+    response_payload: FrozenPayload | None
+    error_payload: FrozenPayload | None
+    created_at: datetime
+    updated_at: datetime
+    lease_token: str
+    lease_expires_at: datetime
+    attempt: int
+    completed_at: datetime | None
+    failed_at: datetime | None
+    last_expired_at: datetime | None
 
 
 class InMemoryIdempotencyRegistry:
@@ -92,7 +117,7 @@ class InMemoryIdempotencyRegistry:
         idempotency_key: str,
         operation_type: str,
         request_hash: str,
-        idempotency_scope: str = "global",
+        idempotency_scope: str,
     ) -> RegistryResult:
         self._validate_input(
             idempotency_scope,
@@ -132,8 +157,6 @@ class InMemoryIdempotencyRegistry:
                     decision=IdempotencyDecision.CONFLICT,
                     status=existing.status,
                     attempt=existing.attempt,
-                    response_payload=existing.response_payload,
-                    error_payload=existing.error_payload,
                 )
 
             if existing.status == IdempotencyStatus.COMPLETED:
@@ -141,7 +164,7 @@ class InMemoryIdempotencyRegistry:
                     decision=IdempotencyDecision.REPLAY,
                     status=existing.status,
                     attempt=existing.attempt,
-                    response_payload=existing.response_payload,
+                    response_payload=freeze_payload(existing.response_payload),
                 )
 
             if existing.status == IdempotencyStatus.FAILED:
@@ -149,7 +172,7 @@ class InMemoryIdempotencyRegistry:
                     decision=IdempotencyDecision.FAILED,
                     status=existing.status,
                     attempt=existing.attempt,
-                    error_payload=existing.error_payload,
+                    error_payload=freeze_payload(existing.error_payload),
                 )
 
             if existing.status == IdempotencyStatus.PENDING:
@@ -176,8 +199,8 @@ class InMemoryIdempotencyRegistry:
         idempotency_key: str,
         lease_token: str,
         response_payload: dict[str, Any],
-        idempotency_scope: str = "global",
-    ) -> IdempotencyRecord:
+        idempotency_scope: str,
+    ) -> IdempotencyRecordSnapshot:
         with self._lock:
             record = self._get_record(
                 idempotency_scope,
@@ -191,12 +214,12 @@ class InMemoryIdempotencyRegistry:
             )
 
             record.status = IdempotencyStatus.COMPLETED
-            record.response_payload = dict(response_payload)
+            record.response_payload = freeze_payload(response_payload)
             record.error_payload = None
             record.updated_at = now
             record.completed_at = now
 
-            return record
+            return self._snapshot(record)
 
     def fail(
         self,
@@ -204,8 +227,8 @@ class InMemoryIdempotencyRegistry:
         idempotency_key: str,
         lease_token: str,
         error_payload: dict[str, Any],
-        idempotency_scope: str = "global",
-    ) -> IdempotencyRecord:
+        idempotency_scope: str,
+    ) -> IdempotencyRecordSnapshot:
         with self._lock:
             record = self._get_record(
                 idempotency_scope,
@@ -219,18 +242,18 @@ class InMemoryIdempotencyRegistry:
             )
 
             record.status = IdempotencyStatus.FAILED
-            record.error_payload = dict(error_payload)
+            record.error_payload = freeze_payload(error_payload)
             record.response_payload = None
             record.updated_at = now
             record.failed_at = now
 
-            return record
+            return self._snapshot(record)
 
     def expire_pending(
         self,
         idempotency_key: str,
         *,
-        idempotency_scope: str = "global",
+        idempotency_scope: str,
     ) -> bool:
         """Expire a due pending operation.
 
@@ -262,15 +285,16 @@ class InMemoryIdempotencyRegistry:
         self,
         idempotency_key: str,
         *,
-        idempotency_scope: str = "global",
-    ) -> IdempotencyRecord | None:
+        idempotency_scope: str,
+    ) -> IdempotencyRecordSnapshot | None:
         with self._lock:
-            return self._records.get(
+            record = self._records.get(
                 self._record_key(
                     idempotency_scope,
                     idempotency_key,
                 )
             )
+            return None if record is None else self._snapshot(record)
 
     def __len__(self) -> int:
         with self._lock:
@@ -364,14 +388,12 @@ class InMemoryIdempotencyRegistry:
         operation_type: str,
         request_hash: str,
     ) -> None:
-        if not idempotency_scope.strip():
-            raise ValueError("idempotency_scope must not be empty")
-        if not idempotency_key.strip():
-            raise ValueError("idempotency_key must not be empty")
-        if not operation_type.strip():
-            raise ValueError("operation_type must not be empty")
-        if not request_hash.strip():
-            raise ValueError("request_hash must not be empty")
+        validate_identity(
+            idempotency_scope=idempotency_scope,
+            idempotency_key=idempotency_key,
+            operation_type=operation_type,
+            request_hash=request_hash,
+        )
 
     def _get_record(
         self,
@@ -389,6 +411,26 @@ class InMemoryIdempotencyRegistry:
             raise KeyError((idempotency_scope, idempotency_key))
 
         return record
+
+    @staticmethod
+    def _snapshot(record: IdempotencyRecord) -> IdempotencyRecordSnapshot:
+        return IdempotencyRecordSnapshot(
+            idempotency_scope=record.idempotency_scope,
+            idempotency_key=record.idempotency_key,
+            operation_type=record.operation_type,
+            request_hash=record.request_hash,
+            status=record.status,
+            response_payload=freeze_payload(record.response_payload),
+            error_payload=freeze_payload(record.error_payload),
+            created_at=record.created_at,
+            updated_at=record.updated_at,
+            lease_token=record.lease_token,
+            lease_expires_at=record.lease_expires_at,
+            attempt=record.attempt,
+            completed_at=record.completed_at,
+            failed_at=record.failed_at,
+            last_expired_at=record.last_expired_at,
+        )
 
     @staticmethod
     def _record_key(

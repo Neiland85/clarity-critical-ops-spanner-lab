@@ -3,7 +3,7 @@ from app.idempotency.port import IdempotencyRegistry
 from app.idempotency.registry import (
     ExpiredExecutionLeaseError,
     IdempotencyDecision,
-    IdempotencyRecord,
+    IdempotencyRecordSnapshot,
     IdempotencyRegistryError,
     IdempotencyStatus,
     InMemoryIdempotencyRegistry,
@@ -16,7 +16,7 @@ from app.idempotency.spanner import SpannerIdempotencyRegistry
 __all__ = [
     "ExpiredExecutionLeaseError",
     "IdempotencyDecision",
-    "IdempotencyRecord",
+    "IdempotencyRecordSnapshot",
     "IdempotencyRegistry",
     "IdempotencyRegistryError",
     "IdempotencyStatus",
