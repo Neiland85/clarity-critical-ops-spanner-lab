@@ -1,10 +1,9 @@
 # 🏦 NeuroBank FastAPI Toolkit
 
-[![CI/CD Pipeline](https://github.com/Neiland85/NeuroBank-FastAPI-Toolkit/workflows/CI/CD%20Pipeline/badge.svg)](https://github.com/Neiland85/NeuroBank-FastAPI-Toolkit/actions)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115.6-009639.svg?style=flat&logo=FastAPI&logoColor=white)](https://fastapi.tiangolo.com)
 [![AWS Serverless](https://img.shields.io/badge/AWS-Serverless-FF9900.svg?style=flat&logo=amazon-aws&logoColor=white)](https://aws.amazon.com/serverless/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Source-Available](https://img.shields.io/badge/License-Source--Available-blue.svg)](LICENSE)
 
 **Enterprise-grade FastAPI toolkit para operaciones bancarias con infraestructura serverless en AWS**
 
@@ -59,8 +58,8 @@ AWS SAM CLI >= 1.100
 
 ### **Clone del repositorio**
 ```bash
-git clone https://github.com/Neiland85/NeuroBank-FastAPI-Toolkit.git
-cd NeuroBank-FastAPI-Toolkit
+git clone https://github.com/Neiland85/clarity-critical-ops-spanner-lab.git
+cd clarity-critical-ops-spanner-lab
 ```
 
 ### **Configuración del entorno**
@@ -102,7 +101,7 @@ docker-compose up --build
 
 ### **Estructura del proyecto**
 ```
-NeuroBank-FastAPI-Toolkit/
+clarity-critical-ops-spanner-lab/
 ├── app/                          # Código fuente principal
 │   ├── routers/                  # Endpoints organizados por módulo
 │   │   └── operator.py          # Operaciones bancarias
@@ -324,12 +323,17 @@ git push origin feature/nueva-funcionalidad
 
 ## 📄 **Licencia**
 
-Este proyecto está licenciado bajo MIT License - ver el archivo [LICENSE](LICENSE) para detalles.
+La baseline actual está sujeta a la **Clarity Structures Commercial
+Source-Available License v1.1**; consulta [LICENSE](LICENSE).
+
+Las copias históricas que hubieran sido distribuidas válidamente bajo MIT
+conservan únicamente los derechos correspondientes a esas copias específicas.
+Consulta también [NOTICE.md](NOTICE.md).
 
 ## 🆘 **Soporte**
 
-- **Issues**: [GitHub Issues](https://github.com/Neiland85/NeuroBank-FastAPI-Toolkit/issues)
-- **Documentation**: [Wiki](https://github.com/Neiland85/NeuroBank-FastAPI-Toolkit/wiki)
+- **Issues**: [GitHub Issues](https://github.com/Neiland85/clarity-critical-ops-spanner-lab/issues)
+- **Documentation**: [Wiki](https://github.com/Neiland85/clarity-critical-ops-spanner-lab/wiki)
 - **AWS Setup**: [AWS_OIDC_SETUP.md](AWS_OIDC_SETUP.md)
 
 ---
