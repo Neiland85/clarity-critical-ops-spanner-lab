@@ -1,5 +1,5 @@
 {
-  "name": "neurobank-fastapi-frontend",
+  "name": "clarity-critical-ops-spanner-lab",
   "version": "1.0.0",
   "description": "Frontend optimization tools for NeuroBank FastAPI Banking System",
   "scripts": {
@@ -14,7 +14,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Neiland85/NeuroBank-FastAPI-Toolkit.git"
+    "url": "git+https://github.com/Neiland85/clarity-critical-ops-spanner-lab.git"
   },
   "keywords": [
     "banking",
@@ -23,14 +23,15 @@
     "optimization",
     "frontend"
   ],
-  "author": "NeuroBank Team",
-  "license": "MIT",
+  "author": "Neil Muñoz Lago",
+  "license": "UNLICENSED",
   "main": "index.js",
   "directories": {
     "doc": "docs"
   },
   "bugs": {
-    "url": "https://github.com/Neiland85/NeuroBank-FastAPI-Toolkit/issues"
+    "url": "https://github.com/Neiland85/clarity-critical-ops-spanner-lab/issues"
   },
-  "homepage": "https://github.com/Neiland85/NeuroBank-FastAPI-Toolkit#readme"
+  "homepage": "https://github.com/Neiland85/clarity-critical-ops-spanner-lab",
+  "private": true
 }

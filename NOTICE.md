@@ -1,51 +1,51 @@
-# Proprietary Notice
+# Clarity Critical Operations — Notice
 
-## Product identity
+## Current asset identity
 
-Current product identity:
+**Asset:** Clarity Critical Operations
+**Repository:** `Neiland85/clarity-critical-ops-spanner-lab`
+**Commercial controller:** Clarity Structures Digital S.L.
+**Original author and technical responsible party:** Neil Muñoz Lago
 
-**Clarity Critical Operations**
+## Current licensing position
 
-Historical repository or documentation references to “NeuroBank FastAPI
-Toolkit” describe an earlier project stage and must not be interpreted as the
-current commercial or architectural definition.
+The current controlled repository baseline is governed by the
+**Clarity Structures Commercial Source-Available License v1.1**, including its
+historical MIT preservation clause.
 
-## Authorship and commercial rights
-
-Original author and technical director:
-
-**Neil Muñoz Lago**
-
-Commercial exploitation and licensing entity:
-
-**Clarity Structures Digital S.L.**
-
-The private chain of title, assignments and corporate authorizations are
-maintained separately from this repository.
+Repository visibility does not grant production, redistribution,
+commercialization, sublicensing or derivative-work rights.
 
 ## Historical licensing
 
-Earlier copies or commits may have been distributed under the MIT License.
+Earlier copies, commits, tags or portions of the predecessor project may have
+been distributed under the MIT License.
 
-Those specific distributions retain the rights granted to their recipients
-under the terms applicable to them.
+Any rights validly granted under MIT remain attached only to the specific
+copies that were distributed under those terms.
 
-Subsequent proprietary work is governed by the current `LICENSE` notice unless
-a separate written agreement states otherwise.
+The current licence does not retroactively revoke those historical rights.
 
-## Third-party names
+Historical MIT distribution does not automatically license later proprietary
+additions, architectural contracts, governance materials, validation evidence,
+new releases or controlled integration baselines.
 
-Google Cloud Spanner, Telefónica Open Gateway, Cloudflare, Redpanda, Rust,
-WebAssembly and other third-party names are the property of their respective
-owners.
+## Historical repository lineage
 
-Their mention describes actual or potential interoperability and does not imply
-endorsement, partnership, certification, contractual availability or completed
-integration.
+The repository contains materials derived from or historically associated with
+the predecessor project identified in metadata as:
 
-## Product status
+`NeuroBank-FastAPI-Toolkit`
 
-This repository contains a product under construction and validation.
+Historical names and metadata are retained only where technically or
+evidentially necessary. Their presence does not alter the current licensing
+position.
 
-Implemented, verified, target and roadmap capabilities must remain clearly
-distinguished in technical and commercial communications.
+## Third-party materials
+
+Dependencies, frameworks, libraries and external specifications remain governed
+by their own licences and notices.
+
+Copyright © 2025–2026 Neil Muñoz Lago.
+Commercial rights controlled to the applicable extent by
+Clarity Structures Digital S.L.
