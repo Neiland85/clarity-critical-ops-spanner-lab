@@ -1,0 +1,12 @@
+target-version = "py311"
+line-length = 100
+
+[lint]
+select = ["E", "F", "B", "S", "ANN", "UP", "ASYNC"]
+ignore = ["ANN101", "ANN102"]
+
+[lint.per-file-ignores]
+"app/tests/*" = ["S101", "ANN"]
+
+[lint.bandit]
+check-string-concat = true
