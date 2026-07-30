@@ -1,71 +1,24 @@
-# --- Basado en la plantilla oficial de Python ---
+# Dependencias de Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+package-lock.json
+pnpm-lock.yaml
+
+# Entornos virtuales y caché de Python
 __pycache__/
 *.py[cod]
 *$py.class
-
-# Entornos virtuales
 .venv/
 venv/
 ENV/
 env/
-env.bak/
-venv.bak/
-
-# Paquetes/compilados
-build/
-dist/
-*.egg-info/
-.eggs/
-*.egg
-wheels/
-pip-wheel-metadata/
-
-# Archivos de logs
-*.log
-
-# Cachés de pruebas y cobertura
 .pytest_cache/
-.coverage
-htmlcov/
-.mypy_cache/
-.pyre/
+.ruff_cache/
 
-# Configuración de IDEs
-.vscode/
-.idea/
-
-# Variables de entorno (dotenv)
-.env
-.env.*
-
-# Documentación generada
-docs/_build/
-
-# Docker (si lo usas)
-*.docker
-docker-compose.override.yml
-
-# Sistema operativo
+# Editores y Workspace
 .DS_Store
-Thumbs.db
-
-# AWS SAM
-.aws-sam/
-
-# Security reports
-bandit-report.json
-safety-report.json
-.env.local
-
-# Phantasm Files
-NeuroBank-FastAPI-Toolkit-1/
-
-neurobank-fastapi.code-workspace
-neurobank-fastapi.code-workspace
-
-# VS Code workspace policy for this private demo
-!.vscode/
-!.vscode/settings.json
-!.vscode/extensions.json
-
-node_modules/
+*.code-workspace
+.vscode/

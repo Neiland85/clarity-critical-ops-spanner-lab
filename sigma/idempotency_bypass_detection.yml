@@ -1,0 +1,25 @@
+title: Detección de Bypass o Manipulación de Registro de Idempotencia
+id: a4b1c2d3-e4f5-6a7b-8c9d-0e1f2a3b4c5d
+status: experimental
+description: Detecta comportamientos donde subprocesos de Python o binarios no autorizados intentan interactuar con sockets del API Gateway de forma directa.
+author: Neil Munoz (Clarity Critical Ops)
+date: 2026/07/30
+logsource:
+    category: process_creation
+    product: linux
+detection:
+    selection_parent:
+        ParentImage|endswith: 
+            - '/python'
+            - '/python3'
+    selection_commands:
+        CommandLine|contains:
+            - 'socket.connect'
+            - 'netcat'
+            - '/dev/tcp/'
+    filter_legitimate_proxy:
+        Image|endswith: '/app/idempotency/registry.py' # Excluir tu proceso legítimo
+    condition: selection_parent and selection_commands and not filter_legitimate_proxy
+falsepositives:
+    - Scripts de tareas de mantenimiento (cronjobs) que pinchen sockets internos de monitorización.
+level: high
