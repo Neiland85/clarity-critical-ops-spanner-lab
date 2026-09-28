@@ -21,4 +21,4 @@ google-cloud-spanner==3.59.0
 
 watchtower==3.0.0
 aws-xray-sdk==2.13.0
-mangum==0.17.0
+mangum==0.22.0
